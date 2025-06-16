@@ -122,6 +122,17 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .optimization-results {
+            background-color: #e0f2fe;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #90cdf4;
+            margin-top: 20px;
+        }
+        .optimization-results h3 {
+            color: #2b6cb0;
+        }
+
 
         /* Responsive adjustments */
         @media (min-width: 768px) {
@@ -133,6 +144,24 @@
             .input-group {
                 flex: 1;
                 max-width: 48%; /* Adjust for spacing */
+            }
+        }
+        @media (max-width: 767px) {
+            .input-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-group {
+                width: 100%;
+            }
+            .input-group input {
+                width: 100%;
+            }
+            .btn-primary {
+                width: 100%;
+            }
+            .optimization-inputs {
+                flex-direction: column;
             }
         }
     </style>
@@ -157,11 +186,47 @@
             <button id="runSimulationBtn" class="btn-primary mt-auto">Run Simulation</button>
         </div>
 
+        <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Strategy Optimization Tool</h2>
+            <p class="text-gray-600 text-center mb-6">
+                Find the optimum Short and Long Moving Average periods that would have maximized profit
+                over the historical data.
+            </p>
+            <div class="optimization-inputs flex flex-col md:flex-row gap-4 mb-6">
+                <div class="input-group">
+                    <label for="minShortMA">Min Short MA:</label>
+                    <input type="number" id="minShortMA" value="5" min="2" max="40">
+                </div>
+                <div class="input-group">
+                    <label for="maxShortMA">Max Short MA:</label>
+                    <input type="number" id="maxShortMA" value="20" min="5" max="50">
+                </div>
+                <div class="input-group">
+                    <label for="minLongMA">Min Long MA:</label>
+                    <input type="number" id="minLongMA" value="25" min="10" max="80">
+                </div>
+                <div class="input-group">
+                    <label for="maxLongMA">Max Long MA:</label>
+                    <input type="number" id="maxLongMA" value="60" min="30" max="100">
+                </div>
+                <button id="findOptimumBtn" class="btn-primary mt-auto">Find Optimum Strategy</button>
+            </div>
+            <div id="optimizationSpinner" class="loading-spinner"></div>
+            <div id="optimizationResults" class="optimization-results hidden">
+                <h3>Optimum Strategy Found:</h3>
+                <p id="optimumShortMA"></p>
+                <p id="optimumLongMA"></p>
+                <p id="optimumProfit"></p>
+                <div id="optimizationMessageBox" class="message-box hidden"></div>
+            </div>
+        </div>
+
+
         <div id="loadingSpinner" class="loading-spinner"></div>
         <canvas id="chartCanvas"></canvas>
 
         <div id="results" class="results-box hidden">
-            <h3>Simulation Results:</h3>
+            <h3>Current Simulation Results:</h3>
             <p id="totalTrades"></p>
             <p id="winningTrades"></p>
             <p id="losingTrades"></p>
@@ -185,6 +250,20 @@
             const messageBox = document.getElementById('messageBox');
             const loadingSpinner = document.getElementById('loadingSpinner');
 
+            // Optimization elements
+            const minShortMAInput = document.getElementById('minShortMA');
+            const maxShortMAInput = document.getElementById('maxShortMA');
+            const minLongMAInput = document.getElementById('minLongMA');
+            const maxLongMAInput = document.getElementById('maxLongMA');
+            const findOptimumBtn = document.getElementById('findOptimumBtn');
+            const optimizationSpinner = document.getElementById('optimizationSpinner');
+            const optimizationResultsDiv = document.getElementById('optimizationResults');
+            const optimumShortMASpan = document.getElementById('optimumShortMA');
+            const optimumLongMASpan = document.getElementById('optimumLongMA');
+            const optimumProfitSpan = document.getElementById('optimumProfit');
+            const optimizationMessageBox = document.getElementById('optimizationMessageBox');
+
+
             let historicalPrices = []; // This will hold the real data
 
             // Set canvas dimensions
@@ -198,30 +277,30 @@
                 chartCanvas.width = chartCanvas.offsetWidth;
                 CHART_WIDTH = chartCanvas.offsetWidth; // Update CHART_WIDTH on resize
                 // Re-run simulation to redraw chart with new dimensions
-                runSimulation();
+                runSimulation(); // Redraw chart with current MA settings
             });
 
             // --- Message Box Functions ---
-            function showMessageBox(message, type = 'info') {
-                messageBox.textContent = message;
-                messageBox.classList.remove('hidden', 'message-box', 'error-message'); // Clear previous classes
-                messageBox.classList.add('message-box'); // Add base class
+            function showMessageBox(message, type = 'info', targetBox = messageBox) {
+                targetBox.textContent = message;
+                targetBox.classList.remove('hidden', 'message-box', 'error-message'); // Clear previous classes
+                targetBox.classList.add('message-box'); // Add base class
 
                 if (type === 'error') {
-                    messageBox.classList.add('error-message');
+                    targetBox.classList.add('error-message');
                 } else {
-                    messageBox.classList.remove('error-message');
+                    targetBox.classList.remove('error-message');
                 }
-                messageBox.classList.remove('hidden');
+                targetBox.classList.remove('hidden');
             }
 
-            function hideMessageBox() {
-                messageBox.classList.add('hidden');
+            function hideMessageBox(targetBox = messageBox) {
+                targetBox.classList.add('hidden');
             }
 
             // --- CSV Data Fetching and Parsing ---
             async function fetchCSV(filePath) {
-                loadingSpinner.style.display = 'block'; // Show spinner
+                loadingSpinner.style.display = 'block'; // Show spinner for main data load
                 showMessageBox('Loading historical data...', 'info');
                 try {
                     // Using the provided GitHub raw content URL
@@ -291,12 +370,11 @@
             // Calculate Simple Moving Average (SMA)
             function calculateSMA(data, period) {
                 if (period <= 0) {
-                    showMessageBox('Moving Average period must be a positive number.', 'error');
-                    return [];
+                    // For optimization, we'll handle period validation outside this function
+                    return Array(data.length).fill(null);
                 }
                 if (period > data.length) {
-                    showMessageBox(`Moving Average period (${period}) cannot be greater than the number of data points (${data.length}).`, 'error');
-                    return Array(data.length).fill(null); // Fill with nulls if period is too large
+                    return Array(data.length).fill(null);
                 }
 
                 const sma = [];
@@ -311,23 +389,29 @@
                 return sma;
             }
 
-            // Identify Moving Average Crossover signals
-            function identifyCrossovers(pricesData, shortMA, longMA) {
-                const signals = []; // Array to store { index, type: 'buy' | 'sell', price }
+            // Identify Moving Average Crossover signals and calculate profit
+            function calculateStrategyPerformance(pricesData, shortPeriod, longPeriod) {
+                const shortMA = calculateSMA(pricesData, shortPeriod);
+                const longMA = calculateSMA(pricesData, longPeriod);
 
-                // Ensure MAs are calculated
-                if (shortMA.length === 0 || longMA.length === 0) {
-                    return signals;
+                if (shortMA.includes(null) || longMA.includes(null) || shortMA.length === 0 || longMA.length === 0) {
+                    // If MAs couldn't be calculated (e.g., period too large), return 0 profit.
+                    // This scenario is handled by input validation in runSimulation and findOptimumStrategy,
+                    // but a robust function should still handle it.
+                    return { totalProfitLoss: 0, tradesCount: 0, winningTrades: 0, losingTrades: 0, signals: [] };
                 }
 
-                let inPosition = false; // Track if we are currently "in a trade" for P/L calculation
-                let entryPrice = 0;
+                const signals = [];
+                let totalProfitLoss = 0;
+                let tradesCount = 0;
+                let winningTrades = 0;
+                let losingTrades = 0;
+                let currentTradeEntryPrice = null;
 
                 for (let i = 1; i < pricesData.length; i++) {
                     const currentPrice = pricesData[i].price;
-                    // Only consider signals after both MAs have enough data points
-                    if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
 
+                    if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
                         // Buy Signal: Short MA crosses above Long MA
                         if (shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]) {
                             if (!inPosition) {
@@ -340,16 +424,39 @@
                         else if (shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]) {
                             if (inPosition) {
                                 signals.push({ index: i, type: 'sell', price: currentPrice, entryPrice: entryPrice });
+                                tradesCount++;
+                                const profitLoss = currentPrice - entryPrice; // Assuming buying 1 unit of Bitcoin
+                                totalProfitLoss += profitLoss;
+
+                                if (profitLoss > 0) {
+                                    winningTrades++;
+                                } else if (profitLoss < 0) {
+                                    losingTrades++;
+                                }
                                 inPosition = false;
                                 entryPrice = 0; // Reset entry price
                             }
                         }
                     }
                 }
-                return signals;
+
+                // If a buy signal was the last signal and the position is still open, close it at the last price
+                if (inPosition && currentTradeEntryPrice !== null) {
+                    tradesCount++;
+                    const lastPrice = pricesData[pricesData.length - 1].price;
+                    const profitLoss = lastPrice - currentTradeEntryPrice;
+                    totalProfitLoss += profitLoss;
+                    if (profitLoss > 0) {
+                        winningTrades++;
+                    } else if (profitLoss < 0) {
+                        losingTrades++;
+                    }
+                }
+
+                return { totalProfitLoss, tradesCount, winningTrades, losingTrades, signals };
             }
 
-            // --- Charting Functions ---
+            // --- Charting Functions (Remains largely the same, but takes signals from calculateStrategyPerformance) ---
 
             function drawChart(pricesData, shortMA, longMA, signals) {
                 ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height); // Clear canvas
@@ -456,10 +563,9 @@
                 });
             }
 
-            // --- Simulation Logic ---
-
+            // --- Main Simulation Logic (for manual input) ---
             function runSimulation() {
-                hideMessageBox(); // Hide any previous messages
+                hideMessageBox(); // Hide any previous messages for current simulation
 
                 const shortPeriod = parseInt(shortMAPeriodInput.value);
                 const longPeriod = parseInt(longMAPeriodInput.value);
@@ -487,66 +593,94 @@
                      return;
                 }
 
+                const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
                 const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
                 const longMAValues = calculateSMA(historicalPrices, longPeriod);
-                const signals = identifyCrossovers(historicalPrices, shortMAValues, longMAValues);
-
-                // Calculate simulated profit/loss
-                let totalProfitLoss = 0;
-                let tradesCount = 0;
-                let winningTrades = 0;
-                let losingTrades = 0;
-                let currentTradeEntryPrice = null;
-
-                signals.forEach(signal => {
-                    if (signal.type === 'buy') {
-                        // If we are already in a position, close it before opening a new one
-                        if (currentTradeEntryPrice !== null) {
-                            // This scenario means an immediate reversal or missed sell signal
-                            // For simplicity, we just reset the position to the new buy signal.
-                            // A more complex model would calculate P/L for the prematurely closed position.
-                        }
-                        currentTradeEntryPrice = signal.price;
-                    } else if (signal.type === 'sell' && currentTradeEntryPrice !== null) {
-                        tradesCount++;
-                        const profitLoss = signal.price - currentTradeEntryPrice; // Assuming buying 1 unit of Bitcoin
-                        totalProfitLoss += profitLoss;
-
-                        if (profitLoss > 0) {
-                            winningTrades++;
-                        } else if (profitLoss < 0) {
-                            losingTrades++;
-                        }
-                        currentTradeEntryPrice = null; // Close position
-                    }
-                });
-
-                // If a buy signal was the last signal, assume the position is closed at the last available price
-                if (currentTradeEntryPrice !== null) {
-                    tradesCount++;
-                    const lastPrice = historicalPrices[historicalPrices.length - 1].price;
-                    const profitLoss = lastPrice - currentTradeEntryPrice;
-                    totalProfitLoss += profitLoss;
-                     if (profitLoss > 0) {
-                        winningTrades++;
-                    } else if (profitLoss < 0) {
-                        losingTrades++;
-                    }
-                }
 
 
                 // Display results
                 resultsDiv.classList.remove('hidden');
-                totalTradesSpan.textContent = `Total completed trades: ${tradesCount}`;
-                winningTradesSpan.textContent = `Winning trades: ${winningTrades}`;
-                losingTradesSpan.textContent = `Losing trades: ${losingTrades}`;
-                simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${totalProfitLoss.toFixed(2)} USD (for 1 unit of Bitcoin traded)`;
-                simulatedProfitSpan.style.color = totalProfitLoss >= 0 ? '#10b981' : '#ef4444'; // Green for profit, red for loss
+                totalTradesSpan.textContent = `Total completed trades: ${performance.tradesCount}`;
+                winningTradesSpan.textContent = `Winning trades: ${performance.winningTrades}`;
+                losingTradesSpan.textContent = `Losing trades: ${performance.losingTrades}`;
+                simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of Bitcoin traded)`;
+                simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444'; // Green for profit, red for loss
 
                 // Draw the chart
                 chartCanvas.width = chartCanvas.offsetWidth; // Ensure current width is used
-                drawChart(historicalPrices, shortMAValues, longMAValues, signals);
+                drawChart(historicalPrices, shortMAValues, longMAValues, performance.signals);
             }
+
+            // --- Optimization Logic ---
+            async function findOptimumStrategy() {
+                hideMessageBox(optimizationMessageBox); // Hide previous optimization messages
+                optimizationResultsDiv.classList.add('hidden'); // Hide previous results
+
+                const minShort = parseInt(minShortMAInput.value);
+                const maxShort = parseInt(maxShortMAInput.value);
+                const minLong = parseInt(minLongMAInput.value);
+                const maxLong = parseInt(maxLongMAInput.value);
+
+                // Input validation for optimization ranges
+                if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
+                    minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
+                    showMessageBox('Please enter valid positive numbers for all optimization ranges.', 'error', optimizationMessageBox);
+                    return;
+                }
+                if (minShort >= maxShort || minLong >= maxLong || maxShort >= minLong) {
+                    showMessageBox('Optimization ranges are invalid. Ensure Min < Max for each, and Max Short < Min Long.', 'error', optimizationMessageBox);
+                    return;
+                }
+                if (maxLong > historicalPrices.length) {
+                    showMessageBox(`Max Long MA (${maxLong}) cannot be greater than the number of data points (${historicalPrices.length}). Adjust range.`, 'error', optimizationMessageBox);
+                    return;
+                }
+
+
+                optimizationSpinner.style.display = 'block'; // Show optimization spinner
+                showMessageBox('Searching for optimum strategy...', 'info', optimizationMessageBox);
+
+                let bestProfit = -Infinity;
+                let bestShortMA = 0;
+                let bestLongMA = 0;
+
+                // Iterate through all combinations of short and long MA periods
+                for (let shortPeriod = minShort; shortPeriod <= maxShort; shortPeriod++) {
+                    for (let longPeriod = minLong; longPeriod <= maxLong; longPeriod++) {
+                        // Ensure short MA is always less than long MA
+                        if (shortPeriod >= longPeriod) {
+                            continue;
+                        }
+                        // Ensure periods are valid for the dataset size
+                        if (longPeriod > historicalPrices.length) {
+                            continue; // Skip if long period is too large for the data
+                        }
+
+                        const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
+
+                        if (performance.totalProfitLoss > bestProfit) {
+                            bestProfit = performance.totalProfitLoss;
+                            bestShortMA = shortPeriod;
+                            bestLongMA = longPeriod;
+                        }
+                    }
+                }
+
+                optimizationSpinner.style.display = 'none'; // Hide optimization spinner
+                optimizationResultsDiv.classList.remove('hidden'); // Show optimization results
+
+                optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestShortMA}`;
+                optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestLongMA}`;
+                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
+                optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444'; // Green for profit, red for loss
+                showMessageBox('Optimization complete.', 'info', optimizationMessageBox);
+
+                // Optionally, update the main simulation inputs and run it with the optimum strategy
+                shortMAPeriodInput.value = bestShortMA;
+                longMAPeriodInput.value = bestLongMA;
+                runSimulation();
+            }
+
 
             // --- Initial Data Load and Setup ---
             // Path for the GitHub raw CSV file
@@ -554,10 +688,11 @@
 
             historicalPrices = await fetchCSV(csvFilePath);
 
-            // Initial run and event listener
+            // Initial event listeners
             runSimulationBtn.addEventListener('click', runSimulation);
+            findOptimumBtn.addEventListener('click', findOptimumStrategy);
 
-            // Run simulation on initial load only if data was loaded successfully
+            // Run initial simulation on load only if data was loaded successfully
             if (historicalPrices.length > 0) {
                 runSimulation();
             }
