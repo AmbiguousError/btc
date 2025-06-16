@@ -155,6 +155,31 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             display: none; /* Hidden by default */
         }
+        .chart-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 15px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .explanation-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .explanation-box h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+        .explanation-box p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #4a5568;
+        }
 
 
         /* Responsive adjustments */
@@ -196,6 +221,21 @@
             This model uses **real historical USD/Bitcoin price data from the provided GitHub CSV file** and applies a Moving Average Crossover strategy to identify potential buy and sell signals.
             You can adjust the periods for the short and long moving averages. Hover over the "Current Strategy Simulation" chart to see price and date details.
         </p>
+
+        <div class="explanation-box">
+            <h3>How Buy and Sell Signals are Calculated (Moving Average Crossover Strategy):</h3>
+            <p>
+                This strategy uses two Moving Averages (MAs): a **Short MA** (faster, e.g., 2-day average) and a **Long MA** (slower, e.g., 5-day average).
+                The core idea is to identify shifts in momentum:
+            </p>
+            <ul>
+                <li><strong>Buy Trigger (Golden Cross):</strong> A signal to **BUY** is generated when the **Short MA crosses *above* the Long MA**. This indicates that short-term price momentum is gaining strength relative to the long-term trend, suggesting a potential uptrend.</li>
+                <li><strong>Sell Trigger (Death Cross):</strong> A signal to **SELL** is generated when the **Short MA crosses *below* the Long MA**. This indicates that short-term price momentum is weakening relative to the long-term trend, suggesting a potential downtrend or a reversal of the uptrend.</li>
+            </ul>
+            <p>
+                The model only buys if it's not already in a position and only sells if it is currently holding a position.
+            </p>
+        </div>
 
         <div class="input-section flex flex-col md:flex-row gap-4 mb-6">
             <div class="input-group">
@@ -331,7 +371,7 @@
                 runSimulation(); // Redraw current sim chart
                 // Re-draw optimum chart if results are visible
                 if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
-                    drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false);
                 }
             });
 
@@ -627,8 +667,8 @@
                     }
                     ctx.fill();
 
-                    // Display Profit/Loss for sell trades ONLY on the main chart
-                    if (isMainChart && signal.type === 'sell' && signal.profitLoss !== undefined) {
+                    // Display Profit/Loss for sell trades on ANY chart that requests it
+                    if (signal.type === 'sell' && signal.profitLoss !== undefined) {
                         const pL = signal.profitLoss.toFixed(2);
                         ctx.fillStyle = signal.profitLoss >= 0 ? '#10b981' : '#ef4444';
                         ctx.font = 'bold 13px Inter';
@@ -640,10 +680,20 @@
                         let textX = x + 15;
                         let textY = y - 15;
 
-                        // Basic boundary checks (more sophisticated collision detection would be complex)
-                        if (textX + textWidth > canvasWidth) textX = x - textWidth - 15;
-                        if (textY < textHeight) textY = y + 15 + textHeight;
+                        // Adjusted positioning logic to ensure visibility within canvas bounds
+                        // Prioritize placing above and right, then above and left, then below and right, etc.
+                        const padding = 5; // Extra padding from edges
 
+                        // Try above-right
+                        if (textX + textWidth > canvasWidth - padding) { // If it goes off right edge
+                            textX = x - textWidth - padding; // Try above-left
+                        }
+                        if (textX < padding) textX = x + padding; // If it goes off left edge, ensure it's not off-screen
+
+                        if (textY < textHeight + padding) { // If it goes off top edge
+                            textY = y + 15 + textHeight + padding; // Try below
+                        }
+                        if (textY > canvasHeight - padding) textY = y - 15 - textHeight - padding; // If it goes off bottom edge, try above
 
                         ctx.fillText(text, textX, textY);
                     }
@@ -780,7 +830,7 @@
                 simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of Bitcoin traded)`;
                 simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444';
 
-                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox); // isMainChart = true
+                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true); // isMainChart = true
             }
 
             let bestOptimumShortMA = 0; // Stored for redraw on resize
@@ -881,7 +931,7 @@
                 if (bestOptimumPerformance) {
                     const optimumShortMAValues = calculateSMA(historicalPrices, bestShortMA);
                     const optimumLongMAValues = calculateSMA(historicalPrices, bestLongMA);
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox); // isMainChart = false
+                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false); // isMainChart = false, as P/L is not shown on opt chart
                 } else {
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height); // Clear if no best found
                 }
@@ -914,7 +964,7 @@
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
                     const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
 
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true, hoverInfoBox);
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true);
                 }
             });
 
@@ -926,7 +976,7 @@
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
                     const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
                     
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true); // No hover, no crosshairs
                 }
                 hoverInfoBox.style.display = 'none';
             });
@@ -941,7 +991,9 @@
                     const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
                     const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
 
-                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
+                    // For the optimum chart, we don't display P/L text on signals.
+                    // The 'isMainChart' flag for drawChart is false here.
+                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false); // isMainChart = false
                 }
             });
 
@@ -950,9 +1002,12 @@
                     const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
                     const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
                     
-                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false); // No hover, no crosshairs
                 }
-                optimumHoverInfoBox.style.display = 'none';
+                // We don't have a dedicated hoverInfoBox for the optimum chart,
+                // so ensure the main one is hidden. If you wanted a separate one,
+                // you'd add <div id="optimumHoverInfoBox" class="hover-info-box"></div>
+                // and pass it to drawChart for the optimum chart.
             });
 
 
