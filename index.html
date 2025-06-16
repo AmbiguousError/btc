@@ -321,13 +321,13 @@
             const shortMAPeriodInput = document.getElementById('shortMA');
             const longMAPeriodInput = document.getElementById('longMA');
             const runSimulationBtn = document.getElementById('runSimulationBtn');
-            const currentSimulationResultsDiv = document.getElementById('currentSimulationResults'); // Changed ID
+            const currentSimulationResultsDiv = document.getElementById('currentSimulationResults');
             const totalTradesSpan = document.getElementById('totalTrades');
             const winningTradesSpan = document.getElementById('winningTrades');
             const losingTradesSpan = document.getElementById('losingTrades');
             const simulatedProfitSpan = document.getElementById('simulatedProfit');
-            const messageBox = document.getElementById('messageBox'); // For current sim messages
-            const loadingSpinner = document.getElementById('loadingSpinner'); // For initial data load
+            const messageBox = document.getElementById('messageBox');
+            const loadingSpinner = document.getElementById('loadingSpinner');
 
             // Optimization elements
             const minShortMAInput = document.getElementById('minShortMA');
@@ -335,17 +335,16 @@
             const minLongMAInput = document.getElementById('minLongMA');
             const maxLongMAInput = document.getElementById('maxLongMA');
             const findOptimumBtn = document.getElementById('findOptimumBtn');
-            const optimizationSpinner = document.getElementById('optimizationSpinner'); // For optimization process
+            const optimizationSpinner = document.getElementById('optimizationSpinner');
             const optimizationResultsDiv = document.getElementById('optimizationResults');
             const optimumShortMASpan = document.getElementById('optimumShortMA');
-            const optimumLongMASpan = document = document.getElementById('optimumLongMA');
+            const optimumLongMASpan = document.getElementById('optimumLongMA');
             const optimumProfitSpan = document.getElementById('optimumProfit');
             const optimumTotalTradesSpan = document.getElementById('optimumTotalTrades');
             const optimumWinningTradesSpan = document.getElementById('optimumWinningTrades');
             const optimumLosingTradesSpan = document.getElementById('optimumLosingTrades');
-            const optimizationMessageBox = document.getElementById('optimizationMessageBox'); // For optimization messages
-            const dataLengthWarning = document.getElementById('dataLengthWarning'); // General warning
-
+            const optimizationMessageBox = document.getElementById('optimizationMessageBox');
+            const dataLengthWarning = document.getElementById('dataLengthWarning');
 
             // Hover elements
             const hoverInfoBox = document.getElementById('hoverInfoBox'); // For main chart
@@ -356,46 +355,43 @@
 
             // Set canvas dimensions
             const CHART_HEIGHT = 400;
-            // Use currentChartCanvas for initial width, then apply to both
             let currentChartWidth = currentChartCanvas.offsetWidth;
             currentChartCanvas.height = CHART_HEIGHT;
             currentChartCanvas.width = currentChartWidth;
             optimumChartCanvas.height = CHART_HEIGHT;
-            optimumChartCanvas.width = currentChartWidth; 
+            optimumChartCanvas.width = currentChartWidth;
 
             // Adjust canvas width on window resize for responsiveness
             window.addEventListener('resize', () => {
-                currentChartWidth = currentChartCanvas.offsetWidth; // Recalculate width
+                currentChartWidth = currentChartCanvas.offsetWidth;
                 currentChartCanvas.width = currentChartWidth;
                 optimumChartCanvas.width = currentChartWidth;
-                runSimulation(); // Redraw current sim chart
-                // Re-draw optimum chart if results are visible
+                runSimulation();
                 if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
                     drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
             });
 
             // --- Message Box Functions ---
-            // Now explicitly takes a targetBox
             function showMessageBox(message, type = 'info', targetBox) {
-                if (!targetBox) { // Default to main messageBox if not specified
+                if (!targetBox) {
                     targetBox = messageBox;
                 }
                 targetBox.textContent = message;
-                targetBox.classList.remove('hidden', 'message-box', 'error-message', 'warning-message'); // Clear all previous types
+                targetBox.classList.remove('hidden', 'message-box', 'error-message', 'warning-message');
                 
                 if (type === 'error') {
                     targetBox.classList.add('error-message');
                 } else if (type === 'warning') {
                     targetBox.classList.add('warning-message');
                 } else {
-                    targetBox.classList.add('message-box'); // Default info style
+                    targetBox.classList.add('message-box');
                 }
                 targetBox.classList.remove('hidden');
             }
 
             function hideMessageBox(targetBox) {
-                if (!targetBox) { // Default to main messageBox if not specified
+                if (!targetBox) {
                     targetBox = messageBox;
                 }
                 targetBox.classList.add('hidden');
@@ -404,7 +400,7 @@
             // --- CSV Data Fetching and Parsing ---
             async function fetchCSV(filePath) {
                 loadingSpinner.style.display = 'block';
-                showMessageBox('Loading historical data...', 'info', messageBox); // Use messageBox for initial load
+                showMessageBox('Loading historical data...', 'info', messageBox);
                 try {
                     console.log('Attempting to fetch data from:', filePath);
                     const response = await fetch(filePath);
@@ -420,7 +416,7 @@
                     return parseCSV(csvText);
                 } catch (error) {
                     console.error('Error fetching or parsing CSV:', error);
-                    showMessageBox(`Failed to load data: ${error.message}. Please check console for details.`, 'error', messageBox); // Use messageBox
+                    showMessageBox(`Failed to load data: ${error.message}. Please check console for details.`, 'error', messageBox);
                     return [];
                 } finally {
                     loadingSpinner.style.display = 'none';
@@ -430,22 +426,22 @@
             function parseCSV(csvText) {
                 const lines = csvText.trim().split('\n');
                 if (lines.length < 2) {
-                    showMessageBox('CSV file is empty or has no data rows.', 'error', messageBox); // Use messageBox
+                    showMessageBox('CSV file is empty or has no data rows.', 'error', messageBox);
                     return [];
                 }
 
                 const rawHeaders = lines[0].split(';');
                 const headers = rawHeaders.map(h => h.trim().replace(/"/g, ''));
 
-                const closePriceIndex = headers.indexOf('Close'); // Changed to 'Close' with capital C
-                const dateIndex = headers.indexOf('Date'); // Changed to 'Date' with capital D
+                const closePriceIndex = headers.indexOf('Close');
+                const dateIndex = headers.indexOf('Date');
 
                 if (closePriceIndex === -1) {
-                    showMessageBox('CSV missing "Close" price column. Please check column headers (expected: "Close").', 'error', messageBox); // Use messageBox
+                    showMessageBox('CSV missing "Close" price column. Please check column headers (expected: "Close").', 'error', messageBox);
                     return [];
                 }
                  if (dateIndex === -1) {
-                    showMessageBox('CSV missing "Date" column. Chart x-axis labels might be less informative (expected: "Date").', 'info', messageBox); // Use messageBox
+                    showMessageBox('CSV missing "Date" column. Chart x-axis labels might be less informative (expected: "Date").', 'info', messageBox);
                 }
 
                 const data = [];
@@ -494,15 +490,12 @@
                 let currentTradeEntryPrice = null;
                 let inPosition = false;
 
-                // Determine the starting index for checking crossovers.
-                // We need enough data points for both MAs to be valid at `i` and `i-1`.
                 const startLookingIndex = Math.max(shortPeriod, longPeriod);
 
 
                 for (let i = startLookingIndex; i < pricesData.length; i++) {
                     const currentPrice = pricesData[i].price;
 
-                    // Ensure both MAs are calculable at current and previous points
                     if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
                         // Buy Signal: Short MA crosses above Long MA (Golden Cross)
                         // This indicates a potential upward trend, suggesting a buying opportunity.
@@ -517,7 +510,6 @@
                         // This indicates a potential downward trend, suggesting a selling opportunity or exit.
                         else if (shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]) {
                             if (inPosition) {
-                                // Calculate P/L for this specific trade
                                 const tradeProfitLoss = currentPrice - currentTradeEntryPrice;
 
                                 signals.push({
@@ -525,7 +517,7 @@
                                     type: 'sell',
                                     price: currentPrice,
                                     entryPrice: currentTradeEntryPrice,
-                                    profitLoss: tradeProfitLoss // Store individual trade P/L
+                                    profitLoss: tradeProfitLoss
                                 });
                                 tradesCount++;
                                 totalProfitLoss += tradeProfitLoss;
@@ -542,8 +534,6 @@
                     }
                 }
 
-                // If a buy signal was the last signal and the position is still open, close it at the last price
-                // This simulates closing the trade at the end of the available historical data.
                 if (inPosition && currentTradeEntryPrice !== null) {
                     tradesCount++;
                     const lastPrice = pricesData[pricesData.length - 1].price;
@@ -562,7 +552,6 @@
             }
 
             // --- Charting Functions ---
-            // drawChart now takes ctx, canvasWidth, canvasHeight to be reusable
             function drawChart(ctx, pricesData, shortMA, longMA, signals, canvasWidth, canvasHeight, hoverX = -1, hoverY = -1, isMainChart = false, hoverInfoBoxElement = null) {
                 ctx.clearRect(0, 0, canvasWidth, canvasHeight);
                 const prices = pricesData.map(d => d.price);
@@ -573,7 +562,7 @@
                 const priceRange = maxPrice - minPrice;
 
                 if (priceRange === 0) {
-                    if (isMainChart) showMessageBox('Price range is zero. Cannot draw chart.', 'error', messageBox); // Use main messageBox
+                    if (isMainChart) showMessageBox('Price range is zero. Cannot draw chart. This might happen if all loaded prices are identical, or there\'s insufficient data range.', 'error', messageBox);
                     return;
                 }
 
@@ -681,19 +670,18 @@
                         let textY = y - 15;
 
                         // Adjusted positioning logic to ensure visibility within canvas bounds
-                        // Prioritize placing above and right, then above and left, then below and right, etc.
-                        const padding = 5; // Extra padding from edges
+                        const padding = 5; 
 
                         // Try above-right
-                        if (textX + textWidth > canvasWidth - padding) { // If it goes off right edge
-                            textX = x - textWidth - padding; // Try above-left
+                        if (textX + textWidth > canvasWidth - padding) { 
+                            textX = x - textWidth - padding; 
                         }
-                        if (textX < padding) textX = x + padding; // If it goes off left edge, ensure it's not off-screen
+                        if (textX < padding) textX = x + padding; 
 
-                        if (textY < textHeight + padding) { // If it goes off top edge
-                            textY = y + 15 + textHeight + padding; // Try below
+                        if (textY < textHeight + padding) { 
+                            textY = y + 15 + textHeight + padding; 
                         }
-                        if (textY > canvasHeight - padding) textY = y - 15 - textHeight - padding; // If it goes off bottom edge, try above
+                        if (textY > canvasHeight - padding) textY = y - 15 - textHeight - padding; 
 
                         ctx.fillText(text, textX, textY);
                     }
@@ -790,6 +778,9 @@
                 const shortPeriod = parseInt(shortMAPeriodInput.value);
                 const longPeriod = parseInt(longMAPeriodInput.value);
 
+                console.log('runSimulation started. shortPeriod:', shortPeriod, 'longPeriod:', longPeriod); // Debugging: log inputs
+                console.log('historicalPrices length:', historicalPrices.length); // Debugging: log data length
+
                 if (historicalPrices.length === 0) {
                     showMessageBox('No historical data loaded. Please ensure data is available.', 'error', messageBox);
                     currentSimulationResultsDiv.classList.add('hidden');
@@ -839,7 +830,7 @@
 
             // --- Optimization Logic ---
             async function findOptimumStrategy() {
-                hideMessageBox(optimizationMessageBox); // Hide optimization messages
+                hideMessageBox(optimizationMessageBox);
                 optimizationResultsDiv.classList.add('hidden');
                 dataLengthWarning.classList.add('hidden'); // Hide general warning
 
@@ -942,8 +933,8 @@
                 runSimulation(); // This will update the main chart and its results
             }
 
-            // Path for the new CSV file from CryptoDataDownload.com
-            const csvFilePath = './Binance_1INCHBTC_d.csv'; // Changed to relative path
+            // Path for the new CSV file, now local as requested
+            const csvFilePath = './Binance_1INCHBTC_d.csv';
 
             historicalPrices = await fetchCSV(csvFilePath);
 
@@ -975,7 +966,7 @@
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
                     const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
                     
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox); // No hover, no crosshairs
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
                 }
                 hoverInfoBox.style.display = 'none';
             });
@@ -990,9 +981,7 @@
                     const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
                     const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
 
-                    // For the optimum chart, we don't display P/L text on signals.
-                    // The 'isMainChart' flag for drawChart is false here.
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox); // isMainChart = false
+                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
                 }
             });
 
@@ -1001,7 +990,7 @@
                     const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
                     const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
                     
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox); // No hover, no crosshairs
+                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
                 optimumHoverInfoBox.style.display = 'none';
             });
