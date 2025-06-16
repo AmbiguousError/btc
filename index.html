@@ -155,6 +155,13 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             display: none; /* Hidden by default */
         }
+        .chart-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 15px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
 
 
         /* Responsive adjustments */
@@ -194,7 +201,7 @@
         <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">USD/Bitcoin Trading Opportunity Identifier</h1>
         <p class="text-gray-600 text-center mb-6">
             This model uses **real historical USD/Bitcoin price data from the provided GitHub CSV file** and applies a Moving Average Crossover strategy to identify potential buy and sell signals.
-            You can adjust the periods for the short and long moving averages. Hover over the chart to see price and date details.
+            You can adjust the periods for the short and long moving averages. Hover over the "Current Strategy Simulation" chart to see price and date details.
         </p>
 
         <div class="input-section flex flex-col md:flex-row gap-4 mb-6">
@@ -209,6 +216,22 @@
             <button id="runSimulationBtn" class="btn-primary mt-auto">Run Simulation</button>
         </div>
         <div id="dataLengthWarning" class="warning-message hidden"></div>
+
+
+        <div id="currentSimulationSection" class="chart-section mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Current Strategy Simulation</h2>
+            <div id="loadingSpinner" class="loading-spinner"></div>
+            <canvas id="currentChartCanvas"></canvas>
+            <div id="hoverInfoBox" class="hover-info-box"></div>
+            <div id="currentSimulationResults" class="results-box hidden">
+                <h3>Simulation Results:</h3>
+                <p id="totalTrades"></p>
+                <p id="winningTrades"></p>
+                <p id="losingTrades"></p>
+                <p id="simulatedProfit"></p>
+                <div id="messageBox" class="message-box hidden"></div>
+            </div>
+        </div>
 
 
         <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
@@ -247,38 +270,30 @@
                 <p id="optimumLosingTrades"></p>
                 <div id="optimizationMessageBox" class="message-box hidden"></div>
             </div>
-        </div>
-
-
-        <div id="loadingSpinner" class="loading-spinner"></div>
-        <canvas id="chartCanvas"></canvas>
-        <div id="hoverInfoBox" class="hover-info-box"></div>
-
-
-        <div id="results" class="results-box hidden">
-            <h3>Current Simulation Results:</h3>
-            <p id="totalTrades"></p>
-            <p id="winningTrades"></p>
-            <p id="losingTrades"></p>
-            <p id="simulatedProfit"></p>
-            <div id="messageBox" class="message-box hidden"></div>
+            <div id="optimumStrategyChartSection" class="chart-section mt-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Optimum Strategy Chart</h2>
+                <canvas id="optimumChartCanvas"></canvas>
+            </div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            const chartCanvas = document.getElementById('chartCanvas');
-            const ctx = chartCanvas.getContext('2d');
+            const currentChartCanvas = document.getElementById('currentChartCanvas');
+            const currentCtx = currentChartCanvas.getContext('2d');
+            const optimumChartCanvas = document.getElementById('optimumChartCanvas');
+            const optimumCtx = optimumChartCanvas.getContext('2d');
+
             const shortMAPeriodInput = document.getElementById('shortMA');
             const longMAPeriodInput = document.getElementById('longMA');
             const runSimulationBtn = document.getElementById('runSimulationBtn');
-            const resultsDiv = document.getElementById('results');
+            const currentSimulationResultsDiv = document.getElementById('currentSimulationResults'); // Changed ID
             const totalTradesSpan = document.getElementById('totalTrades');
             const winningTradesSpan = document.getElementById('winningTrades');
             const losingTradesSpan = document.getElementById('losingTrades');
             const simulatedProfitSpan = document.getElementById('simulatedProfit');
-            const messageBox = document.getElementById('messageBox');
-            const loadingSpinner = document.getElementById('loadingSpinner');
+            const messageBox = document.getElementById('messageBox'); // For current sim messages
+            const loadingSpinner = document.getElementById('loadingSpinner'); // For initial data load
 
             // Optimization elements
             const minShortMAInput = document.getElementById('minShortMA');
@@ -286,7 +301,7 @@
             const minLongMAInput = document.getElementById('minLongMA');
             const maxLongMAInput = document.getElementById('maxLongMA');
             const findOptimumBtn = document.getElementById('findOptimumBtn');
-            const optimizationSpinner = document.getElementById('optimizationSpinner');
+            const optimizationSpinner = document.getElementById('optimizationSpinner'); // For optimization process
             const optimizationResultsDiv = document.getElementById('optimizationResults');
             const optimumShortMASpan = document.getElementById('optimumShortMA');
             const optimumLongMASpan = document.getElementById('optimumLongMA');
@@ -294,8 +309,9 @@
             const optimumTotalTradesSpan = document.getElementById('optimumTotalTrades');
             const optimumWinningTradesSpan = document.getElementById('optimumWinningTrades');
             const optimumLosingTradesSpan = document.getElementById('optimumLosingTrades');
-            const optimizationMessageBox = document.getElementById('optimizationMessageBox');
-            const dataLengthWarning = document.getElementById('dataLengthWarning');
+            const optimizationMessageBox = document.getElementById('optimizationMessageBox'); // For optimization messages
+            const dataLengthWarning = document.getElementById('dataLengthWarning'); // General warning
+
 
             // Hover elements
             const hoverInfoBox = document.getElementById('hoverInfoBox');
@@ -305,40 +321,55 @@
 
             // Set canvas dimensions
             const CHART_HEIGHT = 400;
-            let CHART_WIDTH = chartCanvas.offsetWidth;
-            chartCanvas.height = CHART_HEIGHT;
-            chartCanvas.width = CHART_WIDTH;
+            // Use currentChartCanvas for initial width, then apply to both
+            let currentChartWidth = currentChartCanvas.offsetWidth;
+            currentChartCanvas.height = CHART_HEIGHT;
+            currentChartCanvas.width = currentChartWidth;
+            optimumChartCanvas.height = CHART_HEIGHT;
+            optimumChartCanvas.width = currentChartWidth; 
 
             // Adjust canvas width on window resize for responsiveness
             window.addEventListener('resize', () => {
-                chartCanvas.width = chartCanvas.offsetWidth;
-                CHART_WIDTH = chartCanvas.offsetWidth;
-                runSimulation();
+                currentChartWidth = currentChartCanvas.offsetWidth; // Recalculate width
+                currentChartCanvas.width = currentChartWidth;
+                optimumChartCanvas.width = currentChartWidth;
+                runSimulation(); // Redraw current sim chart
+                // Re-draw optimum chart if results are visible
+                if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
+                    drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false);
+                }
             });
 
             // --- Message Box Functions ---
-            function showMessageBox(message, type = 'info', targetBox = messageBox) {
+            // Now explicitly takes a targetBox
+            function showMessageBox(message, type = 'info', targetBox) {
+                if (!targetBox) { // Default to main messageBox if not specified
+                    targetBox = messageBox;
+                }
                 targetBox.textContent = message;
-                targetBox.classList.remove('hidden', 'message-box', 'error-message', 'warning-message'); // Clear all previous types
+                targetBox.classList.remove('hidden', 'message-box', 'error-message', 'warning-message');
                 
                 if (type === 'error') {
                     targetBox.classList.add('error-message');
                 } else if (type === 'warning') {
                     targetBox.classList.add('warning-message');
                 } else {
-                    targetBox.classList.add('message-box'); // Default info style
+                    targetBox.classList.add('message-box');
                 }
                 targetBox.classList.remove('hidden');
             }
 
-            function hideMessageBox(targetBox = messageBox) {
+            function hideMessageBox(targetBox) {
+                if (!targetBox) { // Default to main messageBox if not specified
+                    targetBox = messageBox;
+                }
                 targetBox.classList.add('hidden');
             }
 
             // --- CSV Data Fetching and Parsing ---
             async function fetchCSV(filePath) {
                 loadingSpinner.style.display = 'block';
-                showMessageBox('Loading historical data...', 'info');
+                showMessageBox('Loading historical data...', 'info', messageBox); // Use messageBox for initial load
                 try {
                     console.log('Attempting to fetch data from:', filePath);
                     const response = await fetch(filePath);
@@ -354,7 +385,7 @@
                     return parseCSV(csvText);
                 } catch (error) {
                     console.error('Error fetching or parsing CSV:', error);
-                    showMessageBox(`Failed to load data: ${error.message}. Please check console for details.`, 'error');
+                    showMessageBox(`Failed to load data: ${error.message}. Please check console for details.`, 'error', messageBox); // Use messageBox
                     return [];
                 } finally {
                     loadingSpinner.style.display = 'none';
@@ -364,7 +395,7 @@
             function parseCSV(csvText) {
                 const lines = csvText.trim().split('\n');
                 if (lines.length < 2) {
-                    showMessageBox('CSV file is empty or has no data rows.', 'error');
+                    showMessageBox('CSV file is empty or has no data rows.', 'error', messageBox); // Use messageBox
                     return [];
                 }
 
@@ -375,11 +406,11 @@
                 const dateIndex = headers.indexOf('timeClose');
 
                 if (closePriceIndex === -1) {
-                    showMessageBox('CSV missing "close" price column. Please check column headers (expected: "close").', 'error');
+                    showMessageBox('CSV missing "close" price column. Please check column headers (expected: "close").', 'error', messageBox); // Use messageBox
                     return [];
                 }
                  if (dateIndex === -1) {
-                    showMessageBox('CSV missing "timeClose" column. Chart x-axis labels might be less informative (expected: "timeClose").', 'info');
+                    showMessageBox('CSV missing "timeClose" column. Chart x-axis labels might be less informative (expected: "timeClose").', 'info', messageBox); // Use messageBox
                 }
 
                 const data = [];
@@ -428,15 +459,12 @@
                 let currentTradeEntryPrice = null;
                 let inPosition = false;
 
-                // Determine the starting index for checking crossovers.
-                // We need enough data points for both MAs to be valid at `i` and `i-1`.
                 const startLookingIndex = Math.max(shortPeriod, longPeriod);
 
 
                 for (let i = startLookingIndex; i < pricesData.length; i++) {
                     const currentPrice = pricesData[i].price;
 
-                    // Ensure both MAs are calculable at current and previous points
                     if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
                         // Buy Signal: Short MA crosses above Long MA
                         if (shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]) {
@@ -449,7 +477,6 @@
                         // Sell Signal: Short MA crosses below Long MA
                         else if (shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]) {
                             if (inPosition) {
-                                // Calculate P/L for this specific trade
                                 const tradeProfitLoss = currentPrice - currentTradeEntryPrice;
 
                                 signals.push({
@@ -457,7 +484,7 @@
                                     type: 'sell',
                                     price: currentPrice,
                                     entryPrice: currentTradeEntryPrice,
-                                    profitLoss: tradeProfitLoss // Store individual trade P/L
+                                    profitLoss: tradeProfitLoss
                                 });
                                 tradesCount++;
                                 totalProfitLoss += tradeProfitLoss;
@@ -474,7 +501,6 @@
                     }
                 }
 
-                // If a buy signal was the last signal and the position is still open, close it at the last price
                 if (inPosition && currentTradeEntryPrice !== null) {
                     tradesCount++;
                     const lastPrice = pricesData[pricesData.length - 1].price;
@@ -493,9 +519,9 @@
             }
 
             // --- Charting Functions ---
-            // Added hoverX and hoverY for drawing crosshairs, and hoverInfo for tooltip
-            function drawChart(pricesData, shortMA, longMA, signals, hoverX = -1, hoverY = -1) {
-                ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+            // drawChart now takes ctx, canvasWidth, canvasHeight to be reusable
+            function drawChart(ctx, pricesData, shortMA, longMA, signals, canvasWidth, canvasHeight, hoverX = -1, hoverY = -1, isMainChart = false) {
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
                 const prices = pricesData.map(d => d.price);
 
                 const allValues = [...prices, ...shortMA.filter(v => v !== null), ...longMA.filter(v => v !== null)];
@@ -504,37 +530,38 @@
                 const priceRange = maxPrice - minPrice;
 
                 if (priceRange === 0) {
-                    showMessageBox('Price range is zero. Cannot draw chart.', 'error');
+                    if (isMainChart) showMessageBox('Price range is zero. Cannot draw chart.', 'error', messageBox); // Use main messageBox
                     return;
                 }
 
-                const xScale = chartCanvas.width / (prices.length - 1);
-                const yScale = chartCanvas.height / priceRange;
+                const xScale = canvasWidth / (prices.length - 1);
+                const yScale = canvasHeight / priceRange;
 
-                const getY = (price) => chartCanvas.height - ((price - minPrice) * yScale);
+                const getY = (price) => canvasHeight - ((price - minPrice) * yScale);
                 const getX = (index) => index * xScale;
 
                 // --- Draw Grid ---
-                ctx.strokeStyle = '#e2e8f0'; // Light gray for grid
+                ctx.strokeStyle = '#e2e8f0';
                 ctx.lineWidth = 0.5;
 
-                // Horizontal grid lines (5 lines)
-                for (let i = 0; i <= 5; i++) {
-                    const yGrid = CHART_HEIGHT / 5 * i;
+                // Horizontal grid lines
+                const numHorizontalLines = 5;
+                for (let i = 0; i <= numHorizontalLines; i++) {
+                    const yGrid = canvasHeight / numHorizontalLines * i;
                     ctx.beginPath();
                     ctx.moveTo(0, yGrid);
-                    ctx.lineTo(CHART_WIDTH, yGrid);
+                    ctx.lineTo(canvasWidth, yGrid);
                     ctx.stroke();
                 }
 
-                // Vertical grid lines (adjust based on data points for reasonable spacing)
-                const numVerticalLines = Math.min(prices.length, 10); // Max 10 vertical lines
-                const xInterval = CHART_WIDTH / (numVerticalLines > 1 ? numVerticalLines - 1 : 1); // Avoid division by zero
+                // Vertical grid lines
+                const numVerticalLines = Math.min(prices.length, 10);
+                const xInterval = canvasWidth / (numVerticalLines > 1 ? numVerticalLines - 1 : 1);
                 for (let i = 0; i < numVerticalLines; i++) {
                     const xGrid = xInterval * i;
                     ctx.beginPath();
                     ctx.moveTo(xGrid, 0);
-                    ctx.lineTo(xGrid, CHART_HEIGHT);
+                    ctx.lineTo(xGrid, canvasHeight);
                     ctx.stroke();
                 }
 
@@ -558,7 +585,7 @@
                 ctx.lineWidth = 1.5;
                 shortMA.forEach((ma, i) => {
                     if (ma !== null) {
-                        if (i === 0 || shortMA[i - 1] === null) { // Start a new path if previous was null or first point
+                        if (i === 0 || shortMA[i - 1] === null) {
                              ctx.moveTo(getX(i), getY(ma));
                         } else {
                              ctx.lineTo(getX(i), getY(ma));
@@ -573,7 +600,7 @@
                 ctx.lineWidth = 1.5;
                 longMA.forEach((ma, i) => {
                     if (ma !== null) {
-                        if (i === 0 || longMA[i - 1] === null) { // Start a new path if previous was null or first point
+                        if (i === 0 || longMA[i - 1] === null) {
                             ctx.moveTo(getX(i), getY(ma));
                         } else {
                             ctx.lineTo(getX(i), getY(ma));
@@ -597,15 +624,25 @@
                     }
                     ctx.fill();
 
-                    // Display Profit/Loss for sell trades
-                    if (signal.type === 'sell' && signal.profitLoss !== undefined) {
+                    // Display Profit/Loss for sell trades ONLY on the main chart
+                    if (isMainChart && signal.type === 'sell' && signal.profitLoss !== undefined) {
                         const pL = signal.profitLoss.toFixed(2);
-                        ctx.fillStyle = signal.profitLoss >= 0 ? '#10b981' : '#ef4444'; // Green for profit, red for loss
-                        ctx.font = 'bold 13px Inter'; // Slightly larger font
-                        const text = `${pL > 0 ? '+' : ''}${pL}`; // Add + for positive profit
+                        ctx.fillStyle = signal.profitLoss >= 0 ? '#10b981' : '#ef4444';
+                        ctx.font = 'bold 13px Inter';
+                        const text = `${pL > 0 ? '+' : ''}${pL}`;
                         
-                        // Adjusted position to be above and slightly right of the sell signal
-                        ctx.fillText(text, x + 15, y - 15); 
+                        const textWidth = ctx.measureText(text).width;
+                        const textHeight = 13; 
+
+                        let textX = x + 15;
+                        let textY = y - 15;
+
+                        // Basic boundary checks (more sophisticated collision detection would be complex)
+                        if (textX + textWidth > canvasWidth) textX = x - textWidth - 15;
+                        if (textY < textHeight) textY = y + 15 + textHeight;
+
+
+                        ctx.fillText(text, textX, textY);
                     }
                 });
 
@@ -620,36 +657,36 @@
                 for (let i = 0; i <= numYLabels; i++) {
                     const priceLabel = minPrice + (priceRange / numYLabels * i);
                     const yPos = getY(priceLabel);
-                    ctx.fillText(`$${priceLabel.toFixed(2)}`, CHART_WIDTH - 10, yPos); /* Increased right padding */
+                    ctx.fillText(`$${priceLabel.toFixed(2)}`, canvasWidth - 10, yPos);
                 }
-                ctx.textAlign = 'left'; // Reset for X-axis
+                ctx.textAlign = 'left';
 
                 // X-axis labels (Dates)
                 ctx.textBaseline = 'top';
-                const numXLabels = Math.min(pricesData.length, 5); // Max 5 date labels
+                const numXLabels = Math.min(pricesData.length, 5);
                 if (pricesData.length > 0) {
                     for (let i = 0; i < numXLabels; i++) {
-                        const index = Math.floor(i * (pricesData.length - 1) / (numXLabels > 1 ? numXLabels - 1 : 1)); // Avoid div by zero
+                        const index = Math.floor(i * (pricesData.length - 1) / (numXLabels > 1 ? numXLabels - 1 : 1));
                         const date = new Date(pricesData[index].date);
                         const xPos = getX(index);
-                        ctx.fillText(date.toLocaleDateString(), xPos + 5, CHART_HEIGHT - 25); /* Increased bottom padding */
+                        ctx.fillText(date.toLocaleDateString(), xPos + 5, canvasHeight - 25);
                     }
                 }
 
-                // --- Draw Crosshair and Hover Info ---
-                if (hoverX !== -1 && hoverY !== -1) {
+                // --- Draw Crosshair and Hover Info (only for the main chart) ---
+                if (isMainChart && hoverX !== -1 && hoverY !== -1) {
                     // Draw vertical crosshair
                     ctx.beginPath();
-                    ctx.strokeStyle = '#6366f1'; // Purple
+                    ctx.strokeStyle = '#6366f1';
                     ctx.lineWidth = 1;
                     ctx.moveTo(hoverX, 0);
-                    ctx.lineTo(hoverX, CHART_HEIGHT);
+                    ctx.lineTo(hoverX, canvasHeight);
                     ctx.stroke();
 
                     // Draw horizontal crosshair
                     ctx.beginPath();
                     ctx.moveTo(0, hoverY);
-                    ctx.lineTo(CHART_WIDTH, hoverY);
+                    ctx.lineTo(canvasWidth, hoverY);
                     ctx.stroke();
 
                     // Calculate closest data point
@@ -661,7 +698,6 @@
                         const hoverMAShort = shortMA[dataIndex] !== null ? shortMA[dataIndex].toFixed(2) : 'N/A';
                         const hoverMALong = longMA[dataIndex] !== null ? longMA[dataIndex].toFixed(2) : 'N/A';
 
-                        // Display info box
                         hoverInfoBox.style.display = 'block';
                         hoverInfoBox.innerHTML = `
                             <strong>Date:</strong> ${hoveredDate}<br>
@@ -670,12 +706,11 @@
                             <strong>Long MA:</strong> ${hoverMALong}
                         `;
 
-                        // Position info box
-                        const containerRect = chartCanvas.getBoundingClientRect();
+                        // Position info box relative to the document, taking canvas position into account
+                        const containerRect = currentChartCanvas.getBoundingClientRect(); // Always use main canvas for hover box position
                         let boxX = hoverX + containerRect.left + 15;
                         let boxY = hoverY + containerRect.top - (hoverInfoBox.offsetHeight / 2);
 
-                        // Keep box within screen bounds
                         if (boxX + hoverInfoBox.offsetWidth > window.innerWidth) {
                             boxX = hoverX + containerRect.left - hoverInfoBox.offsetWidth - 15;
                         }
@@ -690,41 +725,44 @@
                         hoverInfoBox.style.top = `${boxY}px`;
                     }
                 } else {
-                    hoverInfoBox.style.display = 'none'; // Hide info box when not hovering
+                    hoverInfoBox.style.display = 'none';
                 }
             }
 
             // --- Main Simulation Logic (for manual input) ---
             function runSimulation() {
-                hideMessageBox(); // Hide general messages
+                hideMessageBox(messageBox); // Hide general messages for main chart
                 dataLengthWarning.classList.add('hidden'); // Hide specific data length warning
 
                 const shortPeriod = parseInt(shortMAPeriodInput.value);
                 const longPeriod = parseInt(longMAPeriodInput.value);
 
                 if (historicalPrices.length === 0) {
-                    showMessageBox('No historical data loaded. Please ensure data is available.', 'error');
-                    resultsDiv.classList.add('hidden');
+                    showMessageBox('No historical data loaded. Please ensure data is available.', 'error', messageBox);
+                    currentSimulationResultsDiv.classList.add('hidden');
+                    currentCtx.clearRect(0, 0, currentChartCanvas.width, currentChartCanvas.height); // Clear chart on error
                     return;
                 }
 
                 if (isNaN(shortPeriod) || isNaN(longPeriod) || shortPeriod <= 0 || longPeriod <= 0) {
-                    showMessageBox('Please enter valid positive numbers for MA periods.', 'error');
-                    resultsDiv.classList.add('hidden');
+                    showMessageBox('Please enter valid positive numbers for MA periods.', 'error', messageBox);
+                    currentSimulationResultsDiv.classList.add('hidden');
+                    currentCtx.clearRect(0, 0, currentChartCanvas.width, currentChartCanvas.height);
                     return;
                 }
                 if (shortPeriod >= longPeriod) {
-                    showMessageBox('Short MA period must be less than Long MA period.', 'error');
-                    resultsDiv.classList.add('hidden');
+                    showMessageBox('Short MA period must be less than Long MA period.', 'error', messageBox);
+                    currentSimulationResultsDiv.classList.add('hidden');
+                    currentCtx.clearRect(0, 0, currentChartCanvas.width, currentChartCanvas.height);
                     return;
                 }
                 // Warn if not enough data for the selected MA periods
                 if (longPeriod > historicalPrices.length) {
                      const requiredData = longPeriod;
                      const availableData = historicalPrices.length;
-                     showMessageBox(`Not enough data for Long MA period ${longPeriod}. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust MA periods or provide more data.`, 'warning', dataLengthWarning);
-                     resultsDiv.classList.add('hidden'); // Hide results if not enough data
-                     ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height); // Clear chart
+                     showMessageBox(`Not enough data for Long MA period ${longPeriod}. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust MA periods or provide more data.`, 'warning', dataLengthWarning); // Use general warning box
+                     currentSimulationResultsDiv.classList.add('hidden');
+                     currentCtx.clearRect(0, 0, currentChartCanvas.width, currentChartCanvas.height);
                      return;
                 }
 
@@ -732,22 +770,25 @@
                 const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
                 const longMAValues = calculateSMA(historicalPrices, longPeriod);
 
-                resultsDiv.classList.remove('hidden');
+                currentSimulationResultsDiv.classList.remove('hidden');
                 totalTradesSpan.textContent = `Total completed trades: ${performance.tradesCount}`;
                 winningTradesSpan.textContent = `Winning trades: ${performance.winningTrades}`;
                 losingTradesSpan.textContent = `Losing trades: ${performance.losingTrades}`;
                 simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of Bitcoin traded)`;
                 simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444';
 
-                chartCanvas.width = chartCanvas.offsetWidth;
-                drawChart(historicalPrices, shortMAValues, longMAValues, performance.signals);
+                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true); // isMainChart = true
             }
+
+            let bestOptimumShortMA = 0; // Stored for redraw on resize
+            let bestOptimumLongMA = 0;  // Stored for redraw on resize
+            let bestOptimumPerformance = null; // Stored for redraw on resize
 
             // --- Optimization Logic ---
             async function findOptimumStrategy() {
-                hideMessageBox(optimizationMessageBox);
+                hideMessageBox(optimizationMessageBox); // Hide optimization messages
                 optimizationResultsDiv.classList.add('hidden');
-                dataLengthWarning.classList.add('hidden'); // Hide main data length warning
+                dataLengthWarning.classList.add('hidden'); // Hide general warning
 
                 const minShort = parseInt(minShortMAInput.value);
                 const maxShort = parseInt(maxShortMAInput.value);
@@ -757,21 +798,24 @@
                 if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
                     minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
                     showMessageBox('Please enter valid positive numbers for all optimization ranges.', 'error', optimizationMessageBox);
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height); // Clear chart on error
                     return;
                 }
                 if (minShort >= maxShort || minLong >= maxLong || maxShort >= minLong) {
                     showMessageBox('Optimization ranges are invalid. Ensure Min < Max for each, and Max Short < Min Long.', 'error', optimizationMessageBox);
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
                 if (historicalPrices.length === 0) {
                     showMessageBox('No historical data loaded for optimization. Please ensure data is available.', 'error', optimizationMessageBox);
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
-                // Warn if not enough data for the largest MA period in the optimization range
                 if (maxLong > historicalPrices.length) {
                     const requiredData = maxLong;
                     const availableData = historicalPrices.length;
                     showMessageBox(`Optimization range's Max Long MA (${maxLong}) is too large. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust range.`, 'warning', optimizationMessageBox);
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
 
@@ -781,7 +825,7 @@
                 let bestProfit = -Infinity;
                 let bestShortMA = 0;
                 let bestLongMA = 0;
-                let bestPerformance = null;
+                bestOptimumPerformance = null; // Reset before new optimization
 
                 for (let shortPeriod = minShort; shortPeriod <= maxShort; shortPeriod++) {
                     for (let longPeriod = minLong; longPeriod <= maxLong; longPeriod++) {
@@ -798,7 +842,7 @@
                             bestProfit = currentPerformance.totalProfitLoss;
                             bestShortMA = shortPeriod;
                             bestLongMA = longPeriod;
-                            bestPerformance = currentPerformance;
+                            bestOptimumPerformance = currentPerformance;
                         }
                     }
                 }
@@ -811,28 +855,38 @@
                 optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
                 optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
 
-                if (bestPerformance) {
-                    optimumTotalTradesSpan.textContent = `Total completed trades: ${bestPerformance.tradesCount}`;
-                    optimumWinningTradesSpan.textContent = `Winning trades: ${bestPerformance.winningTrades}`;
-                    optimumLosingTradesSpan.textContent = `Losing trades: ${bestPerformance.losingTrades}`;
+                if (bestOptimumPerformance) {
+                    optimumTotalTradesSpan.textContent = `Total completed trades: ${bestOptimumPerformance.tradesCount}`;
+                    optimumWinningTradesSpan.textContent = `Winning trades: ${bestOptimumPerformance.winningTrades}`;
+                    optimumLosingTradesSpan.textContent = `Losing trades: ${bestOptimumPerformance.losingTrades}`;
                 } else {
                     optimumTotalTradesSpan.textContent = `Total completed trades: 0`;
                     optimumWinningTradesSpan.textContent = `Winning trades: 0`;
                     optimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (bestProfit <= 0 && bestPerformance && bestPerformance.tradesCount > 0) {
+                if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount > 0) {
                      showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', optimizationMessageBox);
-                } else if (bestProfit <= 0 && bestPerformance && bestPerformance.tradesCount === 0) {
+                } else if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount === 0) {
                      showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
                 }
                 else {
                     showMessageBox('Optimization complete. Best strategy found!', 'info', optimizationMessageBox);
                 }
 
+                // Draw the optimum chart
+                if (bestOptimumPerformance) {
+                    const optimumShortMAValues = calculateSMA(historicalPrices, bestShortMA);
+                    const optimumLongMAValues = calculateSMA(historicalPrices, bestLongMA);
+                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false); // isMainChart = false
+                } else {
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height); // Clear if no best found
+                }
+
+                // Update main simulation inputs and run it with the optimum strategy (optional, but good for quick view)
                 shortMAPeriodInput.value = bestShortMA;
                 longMAPeriodInput.value = bestLongMA;
-                runSimulation();
+                runSimulation(); // This will update the main chart and its results
             }
 
             // Path for the GitHub raw CSV file
@@ -845,8 +899,8 @@
             findOptimumBtn.addEventListener('click', findOptimumStrategy);
 
             // --- Rollover Interaction Setup ---
-            chartCanvas.addEventListener('mousemove', (e) => {
-                const rect = chartCanvas.getBoundingClientRect();
+            currentChartCanvas.addEventListener('mousemove', (e) => {
+                const rect = currentChartCanvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
@@ -857,11 +911,11 @@
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
                     const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod); // Need signals for redraw
 
-                    drawChart(historicalPrices, shortMAValues, longMAValues, performance.signals, mouseX, mouseY);
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true);
                 }
             });
 
-            chartCanvas.addEventListener('mouseout', () => {
+            currentChartCanvas.addEventListener('mouseout', () => {
                 if (historicalPrices.length > 0) {
                     const shortPeriod = parseInt(shortMAPeriodInput.value);
                     const longPeriod = parseInt(longMAPeriodInput.value);
@@ -869,7 +923,7 @@
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
                     const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
                     
-                    drawChart(historicalPrices, shortMAValues, longMAValues, performance.signals);
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true); // No hover, no crosshairs
                 }
                 hoverInfoBox.style.display = 'none';
             });
