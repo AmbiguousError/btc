@@ -155,13 +155,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             display: none; /* Hidden by default */
         }
-        .chart-section {
-            border: 1px solid #e2e8f0;
-            border-radius: 15px;
-            padding: 20px;
-            background-color: #fff;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-        }
 
 
         /* Responsive adjustments */
@@ -273,6 +266,7 @@
             <div id="optimumStrategyChartSection" class="chart-section mt-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Optimum Strategy Chart</h2>
                 <canvas id="optimumChartCanvas"></canvas>
+                <div id="optimumHoverInfoBox" class="hover-info-box"></div> <!-- New hover info box for optimum chart -->
             </div>
         </div>
     </div>
@@ -314,7 +308,8 @@
 
 
             // Hover elements
-            const hoverInfoBox = document.getElementById('hoverInfoBox');
+            const hoverInfoBox = document.getElementById('hoverInfoBox'); // For main chart
+            const optimumHoverInfoBox = document.getElementById('optimumHoverInfoBox'); // For optimum chart
 
 
             let historicalPrices = [];
@@ -336,7 +331,7 @@
                 runSimulation(); // Redraw current sim chart
                 // Re-draw optimum chart if results are visible
                 if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
-                    drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false);
+                    drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
             });
 
@@ -528,7 +523,7 @@
 
             // --- Charting Functions ---
             // drawChart now takes ctx, canvasWidth, canvasHeight to be reusable
-            function drawChart(ctx, pricesData, shortMA, longMA, signals, canvasWidth, canvasHeight, hoverX = -1, hoverY = -1, isMainChart = false) {
+            function drawChart(ctx, pricesData, shortMA, longMA, signals, canvasWidth, canvasHeight, hoverX = -1, hoverY = -1, isMainChart = false, hoverInfoBoxElement = null) {
                 ctx.clearRect(0, 0, canvasWidth, canvasHeight);
                 const prices = pricesData.map(d => d.price);
 
@@ -681,8 +676,8 @@
                     }
                 }
 
-                // --- Draw Crosshair and Hover Info (only for the main chart) ---
-                if (isMainChart && hoverX !== -1 && hoverY !== -1) {
+                // --- Draw Crosshair and Hover Info ---
+                if (hoverX !== -1 && hoverY !== -1 && hoverInfoBoxElement) { // Check if hoverInfoBoxElement is provided
                     // Draw vertical crosshair
                     ctx.beginPath();
                     ctx.strokeStyle = '#6366f1';
@@ -706,34 +701,34 @@
                         const hoverMAShort = shortMA[dataIndex] !== null ? shortMA[dataIndex].toFixed(2) : 'N/A';
                         const hoverMALong = longMA[dataIndex] !== null ? longMA[dataIndex].toFixed(2) : 'N/A';
 
-                        hoverInfoBox.style.display = 'block';
-                        hoverInfoBox.innerHTML = `
+                        hoverInfoBoxElement.style.display = 'block'; // Use the passed element
+                        hoverInfoBoxElement.innerHTML = `
                             <strong>Date:</strong> ${hoveredDate}<br>
                             <strong>Price:</strong> $${hoveredPrice}<br>
                             <strong>Short MA:</strong> ${hoverMAShort}<br>
                             <strong>Long MA:</strong> ${hoverMALong}
                         `;
 
-                        // Position info box relative to the document, taking canvas position into account
-                        const containerRect = currentChartCanvas.getBoundingClientRect(); // Always use main canvas for hover box position
-                        let boxX = hoverX + containerRect.left + 15;
-                        let boxY = hoverY + containerRect.top - (hoverInfoBox.offsetHeight / 2);
+                        // Position info box relative to the document, taking its *own* canvas position into account
+                        const currentCanvasRect = ctx.canvas.getBoundingClientRect(); 
+                        let boxX = hoverX + currentCanvasRect.left + 15;
+                        let boxY = hoverY + currentCanvasRect.top - (hoverInfoBoxElement.offsetHeight / 2);
 
-                        if (boxX + hoverInfoBox.offsetWidth > window.innerWidth) {
-                            boxX = hoverX + containerRect.left - hoverInfoBox.offsetWidth - 15;
+                        if (boxX + hoverInfoBoxElement.offsetWidth > window.innerWidth) {
+                            boxX = hoverX + currentCanvasRect.left - hoverInfoBoxElement.offsetWidth - 15;
                         }
-                        if (boxY < containerRect.top) {
-                            boxY = containerRect.top;
+                        if (boxY < currentCanvasRect.top) {
+                            boxY = currentCanvasRect.top;
                         }
-                        if (boxY + hoverInfoBox.offsetHeight > window.innerHeight) {
-                            boxY = window.innerHeight - hoverInfoBox.offsetHeight - 10;
+                        if (boxY + hoverInfoBoxElement.offsetHeight > window.innerHeight) {
+                            boxY = window.innerHeight - hoverInfoBoxElement.offsetHeight - 10;
                         }
 
-                        hoverInfoBox.style.left = `${boxX}px`;
-                        hoverInfoBox.style.top = `${boxY}px`;
+                        hoverInfoBoxElement.style.left = `${boxX}px`;
+                        hoverInfoBoxElement.style.top = `${boxY}px`;
                     }
-                } else {
-                    hoverInfoBox.style.display = 'none';
+                } else if (hoverInfoBoxElement) { // Hide if not hovering or no data
+                    hoverInfoBoxElement.style.display = 'none';
                 }
             }
 
@@ -785,7 +780,7 @@
                 simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of Bitcoin traded)`;
                 simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444';
 
-                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true); // isMainChart = true
+                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox); // isMainChart = true
             }
 
             let bestOptimumShortMA = 0; // Stored for redraw on resize
@@ -886,7 +881,7 @@
                 if (bestOptimumPerformance) {
                     const optimumShortMAValues = calculateSMA(historicalPrices, bestShortMA);
                     const optimumLongMAValues = calculateSMA(historicalPrices, bestLongMA);
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false); // isMainChart = false
+                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox); // isMainChart = false
                 } else {
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height); // Clear if no best found
                 }
@@ -906,7 +901,7 @@
             runSimulationBtn.addEventListener('click', runSimulation);
             findOptimumBtn.addEventListener('click', findOptimumStrategy);
 
-            // --- Rollover Interaction Setup ---
+            // --- Rollover Interaction Setup for Current Chart ---
             currentChartCanvas.addEventListener('mousemove', (e) => {
                 const rect = currentChartCanvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
@@ -917,9 +912,9 @@
                     const longPeriod = parseInt(longMAPeriodInput.value);
                     const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
-                    const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod); // Need signals for redraw
+                    const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
 
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true);
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true, hoverInfoBox);
                 }
             });
 
@@ -931,14 +926,37 @@
                     const longMAValues = calculateSMA(historicalPrices, longPeriod);
                     const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
                     
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true); // No hover, no crosshairs
+                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
                 }
                 hoverInfoBox.style.display = 'none';
             });
 
+            // --- Rollover Interaction Setup for Optimum Chart ---
+            optimumChartCanvas.addEventListener('mousemove', (e) => {
+                const rect = optimumChartCanvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                if (historicalPrices.length > 0 && bestOptimumPerformance) { // Only enable if optimization has run
+                    const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
+                    const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
+
+                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
+                }
+            });
+
+            optimumChartCanvas.addEventListener('mouseout', () => {
+                if (historicalPrices.length > 0 && bestOptimumPerformance) {
+                    const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
+                    const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
+                    
+                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                }
+                optimumHoverInfoBox.style.display = 'none';
+            });
+
 
             // Initial run on load only if data was loaded successfully.
-            // This will now likely show a warning if MAs are too large for the 7 data points.
             if (historicalPrices.length > 0) {
                 runSimulation();
             }
