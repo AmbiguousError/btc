@@ -459,14 +459,18 @@
                 let currentTradeEntryPrice = null;
                 let inPosition = false;
 
+                // Determine the starting index for checking crossovers.
+                // We need enough data points for both MAs to be valid at `i` and `i-1`.
                 const startLookingIndex = Math.max(shortPeriod, longPeriod);
 
 
                 for (let i = startLookingIndex; i < pricesData.length; i++) {
                     const currentPrice = pricesData[i].price;
 
+                    // Ensure both MAs are calculable at current and previous points
                     if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
-                        // Buy Signal: Short MA crosses above Long MA
+                        // Buy Signal: Short MA crosses above Long MA (Golden Cross)
+                        // This indicates a potential upward trend, suggesting a buying opportunity.
                         if (shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]) {
                             if (!inPosition) {
                                 signals.push({ index: i, type: 'buy', price: currentPrice });
@@ -474,9 +478,11 @@
                                 currentTradeEntryPrice = currentPrice;
                             }
                         }
-                        // Sell Signal: Short MA crosses below Long MA
+                        // Sell Signal: Short MA crosses below Long MA (Death Cross)
+                        // This indicates a potential downward trend, suggesting a selling opportunity or exit.
                         else if (shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]) {
                             if (inPosition) {
+                                // Calculate P/L for this specific trade
                                 const tradeProfitLoss = currentPrice - currentTradeEntryPrice;
 
                                 signals.push({
@@ -484,7 +490,7 @@
                                     type: 'sell',
                                     price: currentPrice,
                                     entryPrice: currentTradeEntryPrice,
-                                    profitLoss: tradeProfitLoss
+                                    profitLoss: tradeProfitLoss // Store individual trade P/L
                                 });
                                 tradesCount++;
                                 totalProfitLoss += tradeProfitLoss;
@@ -501,6 +507,8 @@
                     }
                 }
 
+                // If a buy signal was the last signal and the position is still open, close it at the last price
+                // This simulates closing the trade at the end of the available historical data.
                 if (inPosition && currentTradeEntryPrice !== null) {
                     tradesCount++;
                     const lastPrice = pricesData[pricesData.length - 1].price;
