@@ -217,6 +217,9 @@
                 <p id="optimumShortMA"></p>
                 <p id="optimumLongMA"></p>
                 <p id="optimumProfit"></p>
+                <p id="optimumTotalTrades"></p>
+                <p id="optimumWinningTrades"></p>
+                <p id="optimumLosingTrades"></p>
                 <div id="optimizationMessageBox" class="message-box hidden"></div>
             </div>
         </div>
@@ -261,6 +264,9 @@
             const optimumShortMASpan = document.getElementById('optimumShortMA');
             const optimumLongMASpan = document.getElementById('optimumLongMA');
             const optimumProfitSpan = document.getElementById('optimumProfit');
+            const optimumTotalTradesSpan = document.getElementById('optimumTotalTrades'); // New element
+            const optimumWinningTradesSpan = document.getElementById('optimumWinningTrades'); // New element
+            const optimumLosingTradesSpan = document.getElementById('optimumLosingTrades'); // New element
             const optimizationMessageBox = document.getElementById('optimizationMessageBox');
 
 
@@ -643,6 +649,8 @@
                 let bestProfit = -Infinity;
                 let bestShortMA = 0;
                 let bestLongMA = 0;
+                let bestPerformance = null; // Store the full performance object
+
 
                 // Iterate through all combinations of short and long MA periods
                 for (let shortPeriod = minShort; shortPeriod <= maxShort; shortPeriod++) {
@@ -656,12 +664,13 @@
                             continue; // Skip if long period is too large for the data
                         }
 
-                        const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
+                        const currentPerformance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > bestProfit) {
-                            bestProfit = performance.totalProfitLoss;
+                        if (currentPerformance.totalProfitLoss > bestProfit) {
+                            bestProfit = currentPerformance.totalProfitLoss;
                             bestShortMA = shortPeriod;
                             bestLongMA = longPeriod;
+                            bestPerformance = currentPerformance; // Store the best performance
                         }
                     }
                 }
@@ -673,7 +682,26 @@
                 optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestLongMA}`;
                 optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
                 optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444'; // Green for profit, red for loss
-                showMessageBox('Optimization complete.', 'info', optimizationMessageBox);
+
+                if (bestPerformance) { // Display detailed trade stats for the optimum strategy
+                    optimumTotalTradesSpan.textContent = `Total completed trades: ${bestPerformance.tradesCount}`;
+                    optimumWinningTradesSpan.textContent = `Winning trades: ${bestPerformance.winningTrades}`;
+                    optimumLosingTradesSpan.textContent = `Losing trades: ${bestPerformance.losingTrades}`;
+                } else {
+                     optimumTotalTradesSpan.textContent = `Total completed trades: 0`;
+                    optimumWinningTradesSpan.textContent = `Winning trades: 0`;
+                    optimumLosingTradesSpan.textContent = `Losing trades: 0`;
+                }
+
+                if (bestProfit <= 0 && bestPerformance && bestPerformance.tradesCount > 0) {
+                     showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even).`, 'info', optimizationMessageBox);
+                } else if (bestProfit <= 0 && bestPerformance && bestPerformance.tradesCount === 0) {
+                     showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
+                }
+                else {
+                    showMessageBox('Optimization complete. Best strategy found!', 'info', optimizationMessageBox);
+                }
+
 
                 // Optionally, update the main simulation inputs and run it with the optimum strategy
                 shortMAPeriodInput.value = bestShortMA;
