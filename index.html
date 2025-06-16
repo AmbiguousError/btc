@@ -132,6 +132,16 @@
         .optimization-results h3 {
             color: #2b6cb0;
         }
+        .warning-message {
+            background-color: #ffe8d1; /* Light orange */
+            border: 1px solid #ffcc80; /* Darker orange */
+            color: #a0522d; /* Dark brown */
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-weight: 500;
+            text-align: center;
+        }
 
 
         /* Responsive adjustments */
@@ -176,15 +186,17 @@
 
         <div class="input-section flex flex-col md:flex-row gap-4 mb-6">
             <div class="input-group">
-                <label for="shortMA">Short MA Period (e.g., 10):</label>
-                <input type="number" id="shortMA" value="10" min="2" max="50">
+                <label for="shortMA">Short MA Period (e.g., 2):</label>
+                <input type="number" id="shortMA" value="2" min="2" max="50">
             </div>
             <div class="input-group">
-                <label for="longMA">Long MA Period (e.g., 30):</label>
-                <input type="number" id="longMA" value="30" min="3" max="100">
+                <label for="longMA">Long MA Period (e.g., 5):</label>
+                <input type="number" id="longMA" value="5" min="3" max="100">
             </div>
             <button id="runSimulationBtn" class="btn-primary mt-auto">Run Simulation</button>
         </div>
+        <div id="dataLengthWarning" class="warning-message hidden"></div>
+
 
         <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Strategy Optimization Tool</h2>
@@ -195,19 +207,19 @@
             <div class="optimization-inputs flex flex-col md:flex-row gap-4 mb-6">
                 <div class="input-group">
                     <label for="minShortMA">Min Short MA:</label>
-                    <input type="number" id="minShortMA" value="5" min="2" max="40">
+                    <input type="number" id="minShortMA" value="2" min="2" max="40">
                 </div>
                 <div class="input-group">
                     <label for="maxShortMA">Max Short MA:</label>
-                    <input type="number" id="maxShortMA" value="20" min="5" max="50">
+                    <input type="number" id="maxShortMA" value="5" min="5" max="50">
                 </div>
                 <div class="input-group">
                     <label for="minLongMA">Min Long MA:</label>
-                    <input type="number" id="minLongMA" value="25" min="10" max="80">
+                    <input type="number" id="minLongMA" value="6" min="10" max="80">
                 </div>
                 <div class="input-group">
                     <label for="maxLongMA">Max Long MA:</label>
-                    <input type="number" id="maxLongMA" value="60" min="30" max="100">
+                    <input type="number" id="maxLongMA" value="15" min="30" max="100">
                 </div>
                 <button id="findOptimumBtn" class="btn-primary mt-auto">Find Optimum Strategy</button>
             </div>
@@ -257,7 +269,7 @@
             const minShortMAInput = document.getElementById('minShortMA');
             const maxShortMAInput = document.getElementById('maxShortMA');
             const minLongMAInput = document.getElementById('minLongMA');
-            const maxLongMAInput = document.getElementById('maxLongMA'); // Corrected from minLongMAInput
+            const maxLongMAInput = document.getElementById('maxLongMA');
             const findOptimumBtn = document.getElementById('findOptimumBtn');
             const optimizationSpinner = document.getElementById('optimizationSpinner');
             const optimizationResultsDiv = document.getElementById('optimizationResults');
@@ -268,6 +280,7 @@
             const optimumWinningTradesSpan = document.getElementById('optimumWinningTrades');
             const optimumLosingTradesSpan = document.getElementById('optimumLosingTrades');
             const optimizationMessageBox = document.getElementById('optimizationMessageBox');
+            const dataLengthWarning = document.getElementById('dataLengthWarning');
 
 
             let historicalPrices = [];
@@ -288,13 +301,14 @@
             // --- Message Box Functions ---
             function showMessageBox(message, type = 'info', targetBox = messageBox) {
                 targetBox.textContent = message;
-                targetBox.classList.remove('hidden', 'message-box', 'error-message');
-                targetBox.classList.add('message-box');
-
+                targetBox.classList.remove('hidden', 'message-box', 'error-message', 'warning-message'); // Clear all previous types
+                
                 if (type === 'error') {
                     targetBox.classList.add('error-message');
+                } else if (type === 'warning') {
+                    targetBox.classList.add('warning-message');
                 } else {
-                    targetBox.classList.remove('error-message');
+                    targetBox.classList.add('message-box'); // Default info style
                 }
                 targetBox.classList.remove('hidden');
             }
@@ -308,18 +322,17 @@
                 loadingSpinner.style.display = 'block';
                 showMessageBox('Loading historical data...', 'info');
                 try {
-                    console.log('Attempting to fetch data from:', filePath); // Log the URL
+                    console.log('Attempting to fetch data from:', filePath);
                     const response = await fetch(filePath);
                     if (!response.ok) {
-                        // Log full error response for debugging
                         console.error('Fetch response not OK:', response.status, response.statusText);
-                        if (response.type === 'opaque') {
-                             throw new Error('CORS Error: Cannot directly load data from this external URL due to browser security policies. Please use a local file or a proxy server.');
+                        if (response.type === 'opaque' || (response.status === 0 && !navigator.onLine)) {
+                             throw new Error('Network/CORS Error: Data could not be loaded. This typically happens when trying to fetch from an external URL like GitHub without proper CORS headers or a proxy.');
                         }
                         throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
                     }
                     const csvText = await response.text();
-                    console.log('CSV data fetched successfully.'); // Confirm fetch success
+                    console.log('CSV data fetched successfully.');
                     return parseCSV(csvText);
                 } catch (error) {
                     console.error('Error fetching or parsing CSV:', error);
@@ -364,7 +377,7 @@
                         });
                     }
                 }
-                console.log('CSV parsed. Number of data points:', data.length); // Confirm data parsing
+                console.log('CSV parsed. Number of data points:', data.length);
                 return data.reverse();
             }
 
@@ -389,7 +402,8 @@
                 const shortMA = calculateSMA(pricesData, shortPeriod);
                 const longMA = calculateSMA(pricesData, longPeriod);
 
-                if (shortMA.includes(null) || longMA.includes(null) || shortMA.length === 0 || longMA.length === 0) {
+                // If MAs cannot be calculated (e.g., period too large for data), return no trades
+                if (shortMA.some(val => val === null) || longMA.some(val => val === null)) {
                     return { totalProfitLoss: 0, tradesCount: 0, winningTrades: 0, losingTrades: 0, signals: [] };
                 }
 
@@ -404,6 +418,7 @@
                 for (let i = 1; i < pricesData.length; i++) {
                     const currentPrice = pricesData[i].price;
 
+                    // Ensure both MAs have values at current and previous points for comparison
                     if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
                         // Buy Signal: Short MA crosses above Long MA
                         if (shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]) {
@@ -433,6 +448,7 @@
                     }
                 }
 
+                // If a buy signal was the last signal and the position is still open, close it at the last price
                 if (inPosition && currentTradeEntryPrice !== null) {
                     tradesCount++;
                     const lastPrice = pricesData[pricesData.length - 1].price;
@@ -444,6 +460,8 @@
                         losingTrades++;
                     }
                 }
+                
+                console.log(`Strategy Performance for Short MA ${shortPeriod}, Long MA ${longPeriod}:`, { totalProfitLoss, tradesCount, winningTrades, losingTrades, signals });
 
                 return { totalProfitLoss, tradesCount, winningTrades, losingTrades, signals };
             }
@@ -542,7 +560,8 @@
 
             // --- Main Simulation Logic (for manual input) ---
             function runSimulation() {
-                hideMessageBox();
+                hideMessageBox(); // Hide general messages
+                dataLengthWarning.classList.add('hidden'); // Hide specific data length warning
 
                 const shortPeriod = parseInt(shortMAPeriodInput.value);
                 const longPeriod = parseInt(longMAPeriodInput.value);
@@ -563,9 +582,13 @@
                     resultsDiv.classList.add('hidden');
                     return;
                 }
+                // Warn if not enough data for the selected MA periods
                 if (longPeriod > historicalPrices.length) {
-                     showMessageBox(`Long MA period (${longPeriod}) cannot be greater than the number of available data points (${historicalPrices.length}).`, 'error');
-                     resultsDiv.classList.add('hidden');
+                     const requiredData = longPeriod;
+                     const availableData = historicalPrices.length;
+                     showMessageBox(`Not enough data for Long MA period ${longPeriod}. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust MA periods or provide more data.`, 'warning', dataLengthWarning);
+                     resultsDiv.classList.add('hidden'); // Hide results if not enough data
+                     ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height); // Clear chart
                      return;
                 }
 
@@ -588,11 +611,12 @@
             async function findOptimumStrategy() {
                 hideMessageBox(optimizationMessageBox);
                 optimizationResultsDiv.classList.add('hidden');
+                dataLengthWarning.classList.add('hidden'); // Hide main data length warning
 
                 const minShort = parseInt(minShortMAInput.value);
                 const maxShort = parseInt(maxShortMAInput.value);
                 const minLong = parseInt(minLongMAInput.value);
-                const maxLong = parseInt(maxLongMAInput.value); // Corrected typo here
+                const maxLong = parseInt(maxLongMAInput.value);
 
                 if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
                     minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
@@ -607,8 +631,11 @@
                     showMessageBox('No historical data loaded for optimization. Please ensure data is available.', 'error', optimizationMessageBox);
                     return;
                 }
+                // Warn if not enough data for the largest MA period in the optimization range
                 if (maxLong > historicalPrices.length) {
-                    showMessageBox(`Max Long MA (${maxLong}) cannot be greater than the number of data points (${historicalPrices.length}). Adjust range.`, 'error', optimizationMessageBox);
+                    const requiredData = maxLong;
+                    const availableData = historicalPrices.length;
+                    showMessageBox(`Optimization range's Max Long MA (${maxLong}) is too large. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust range.`, 'warning', optimizationMessageBox);
                     return;
                 }
 
@@ -659,9 +686,9 @@
                 }
 
                 if (bestProfit <= 0 && bestPerformance && bestPerformance.tradesCount > 0) {
-                     showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even).`, 'info', optimizationMessageBox);
+                     showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', optimizationMessageBox);
                 } else if (bestProfit <= 0 && bestPerformance && bestPerformance.tradesCount === 0) {
-                     showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
+                     showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
                 }
                 else {
                     showMessageBox('Optimization complete. Best strategy found!', 'info', optimizationMessageBox);
@@ -672,13 +699,17 @@
                 runSimulation();
             }
 
+            // Path for the GitHub raw CSV file
             const csvFilePath = 'https://raw.githubusercontent.com/AmbiguousError/btc/refs/heads/main/BTC.csv';
 
+            // Attempt to fetch from GitHub (will likely hit CORS error in this environment if not hosted via GitHub Pages)
             historicalPrices = await fetchCSV(csvFilePath);
 
             runSimulationBtn.addEventListener('click', runSimulation);
             findOptimumBtn.addEventListener('click', findOptimumStrategy);
 
+            // Initial run on load only if data was loaded successfully.
+            // This will now likely show a warning if MAs are too large for the 7 data points.
             if (historicalPrices.length > 0) {
                 runSimulation();
             }
