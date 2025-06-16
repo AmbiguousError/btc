@@ -543,12 +543,8 @@
                 drawChart(historicalPrices, shortMAValues, longMAValues, signals);
             }
 
-            // --- Initial Data Load and Setup ---
-            // The path for uploaded files in this environment
-            // const csvFilePath = '/__run__/resources/BTC.csv'; // This path is for uploaded files in the current environment
-
             // Path for the GitHub raw CSV file
-            const csvFilePath = 'https://raw.githubusercontent.com/AmbiguousError/btc/main/BTC.csv';
+            const csvFilePath = 'https://raw.githubusercontent.com/AmbiguousError/btc/refs/heads/main/BTC.csv';
 
             historicalPrices = await fetchCSV(csvFilePath);
 
