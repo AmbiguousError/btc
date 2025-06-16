@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USD/Bitcoin Trading Opportunity Identifier</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better layout on smaller screens */
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #fdfdfd;
+            width: 100%; /* Make canvas responsive */
+            height: 400px; /* Fixed height for charting */
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .input-group label {
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .input-group input {
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .btn-primary {
+            background-color: #6366f1;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+        .btn-primary:hover {
+            background-color: #4f46e5;
+            transform: translateY(-1px);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(99, 102, 241, 0.3);
+        }
+        .results-box {
+            background-color: #edf2f7;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #d1d5db;
+        }
+        .results-box h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #2d3748;
+        }
+        .results-box p {
+            margin-bottom: 8px;
+            line-height: 1.5;
+            color: #4a5568;
+        }
+        .message-box {
+            background-color: #fefcbf;
+            border: 1px solid #fbd38d;
+            color: #92400e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 500;
+            text-align: center;
+        }
+        .error-message {
+            background-color: #fed7d7;
+            border: 1px solid #fc8181;
+            color: #c53030;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: none; /* Hidden by default */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 768px) {
+            .input-section {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: flex-end;
+            }
+            .input-group {
+                flex: 1;
+                max-width: 48%; /* Adjust for spacing */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">USD/Bitcoin Trading Opportunity Identifier</h1>
+        <p class="text-gray-600 text-center mb-6">
+            This model uses **real historical USD/Bitcoin price data from the provided GitHub CSV file** and applies a Moving Average Crossover strategy to identify potential buy and sell signals.
+            You can adjust the periods for the short and long moving averages.
+        </p>
+
+        <div class="input-section flex flex-col md:flex-row gap-4 mb-6">
+            <div class="input-group">
+                <label for="shortMA">Short MA Period (e.g., 10):</label>
+                <input type="number" id="shortMA" value="10" min="2" max="50">
+            </div>
+            <div class="input-group">
+                <label for="longMA">Long MA Period (e.g., 30):</label>
+                <input type="number" id="longMA" value="30" min="3" max="100">
+            </div>
+            <button id="runSimulationBtn" class="btn-primary mt-auto">Run Simulation</button>
+        </div>
+
+        <div id="loadingSpinner" class="loading-spinner"></div>
+        <canvas id="chartCanvas"></canvas>
+
+        <div id="results" class="results-box hidden">
+            <h3>Simulation Results:</h3>
+            <p id="totalTrades"></p>
+            <p id="winningTrades"></p>
+            <p id="losingTrades"></p>
+            <p id="simulatedProfit"></p>
+            <div id="messageBox" class="message-box hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const chartCanvas = document.getElementById('chartCanvas');
+            const ctx = chartCanvas.getContext('2d');
+            const shortMAPeriodInput = document.getElementById('shortMA');
+            const longMAPeriodInput = document.getElementById('longMA');
+            const runSimulationBtn = document.getElementById('runSimulationBtn');
+            const resultsDiv = document.getElementById('results');
+            const totalTradesSpan = document.getElementById('totalTrades');
+            const winningTradesSpan = document.getElementById('winningTrades');
+            const losingTradesSpan = document.getElementById('losingTrades');
+            const simulatedProfitSpan = document.getElementById('simulatedProfit');
+            const messageBox = document.getElementById('messageBox');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            let historicalPrices = []; // This will hold the real data
+
+            // Set canvas dimensions
+            const CHART_HEIGHT = 400;
+            let CHART_WIDTH = chartCanvas.offsetWidth; // Get actual width on load
+            chartCanvas.height = CHART_HEIGHT;
+            chartCanvas.width = CHART_WIDTH;
+
+            // Adjust canvas width on window resize for responsiveness
+            window.addEventListener('resize', () => {
+                chartCanvas.width = chartCanvas.offsetWidth;
+                CHART_WIDTH = chartCanvas.offsetWidth; // Update CHART_WIDTH on resize
+                // Re-run simulation to redraw chart with new dimensions
+                runSimulation();
+            });
+
+            // --- Message Box Functions ---
+            function showMessageBox(message, type = 'info') {
+                messageBox.textContent = message;
+                messageBox.classList.remove('hidden', 'message-box', 'error-message'); // Clear previous classes
+                messageBox.classList.add('message-box'); // Add base class
+
+                if (type === 'error') {
+                    messageBox.classList.add('error-message');
+                } else {
+                    messageBox.classList.remove('error-message');
+                }
+                messageBox.classList.remove('hidden');
+            }
+
+            function hideMessageBox() {
+                messageBox.classList.add('hidden');
+            }
+
+            // --- CSV Data Fetching and Parsing ---
+            async function fetchCSV(filePath) {
+                loadingSpinner.style.display = 'block'; // Show spinner
+                showMessageBox('Loading historical data...', 'info');
+                try {
+                    // Using the provided GitHub raw content URL
+                    const response = await fetch(filePath);
+                    if (!response.ok) {
+                        // Check for specific CORS error status if possible, but generally just HTTP error is enough
+                        if (response.type === 'opaque') { // This can sometimes indicate a CORS block
+                             throw new Error('CORS Error: Cannot directly load data from this external URL due to browser security policies. Please use a local file or a proxy server.');
+                        }
+                        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+                    }
+                    const csvText = await response.text();
+                    return parseCSV(csvText);
+                } catch (error) {
+                    console.error('Error fetching or parsing CSV:', error);
+                    showMessageBox(`Failed to load data: ${error.message}.`, 'error');
+                    return [];
+                } finally {
+                    loadingSpinner.style.display = 'none'; // Hide spinner
+                }
+            }
+
+            function parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                if (lines.length < 2) {
+                    showMessageBox('CSV file is empty or has no data rows.', 'error');
+                    return [];
+                }
+
+                const headers = lines[0].split(';'); // Use semicolon as delimiter
+                const closePriceIndex = headers.indexOf('Close'); // Assuming 'Close' column
+                const dateIndex = headers.indexOf('Date'); // Assuming 'Date' column
+
+                if (closePriceIndex === -1) {
+                    showMessageBox('CSV missing "Close" price column.', 'error');
+                    return [];
+                }
+                 if (dateIndex === -1) {
+                    showMessageBox('CSV missing "Date" column. Chart x-axis labels might be less informative.', 'info');
+                }
+
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const columns = lines[i].split(';');
+                    const closePrice = parseFloat(columns[closePriceIndex]);
+                    const date = columns[dateIndex]; // Keep date string for potential future use
+
+                    if (!isNaN(closePrice)) {
+                        data.push({
+                            price: closePrice,
+                            date: date
+                        });
+                    }
+                }
+                // The CSV seems to be in reverse chronological order (most recent first).
+                // Charting usually expects chronological order.
+                return data.reverse();
+            }
+
+            // --- Technical Analysis Functions ---
+
+            // Calculate Simple Moving Average (SMA)
+            function calculateSMA(data, period) {
+                if (period <= 0) {
+                    showMessageBox('Moving Average period must be a positive number.', 'error');
+                    return [];
+                }
+                if (period > data.length) {
+                    showMessageBox(`Moving Average period (${period}) cannot be greater than the number of data points (${data.length}).`, 'error');
+                    return Array(data.length).fill(null); // Fill with nulls if period is too large
+                }
+
+                const sma = [];
+                for (let i = 0; i < data.length; i++) {
+                    if (i < period - 1) {
+                        sma.push(null); // Not enough data for the initial points
+                    } else {
+                        const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.price, 0); // Access .price property
+                        sma.push(sum / period);
+                    }
+                }
+                return sma;
+            }
+
+            // Identify Moving Average Crossover signals
+            function identifyCrossovers(pricesData, shortMA, longMA) {
+                const signals = []; // Array to store { index, type: 'buy' | 'sell', price }
+
+                // Ensure MAs are calculated
+                if (shortMA.length === 0 || longMA.length === 0) {
+                    return signals;
+                }
+
+                let inPosition = false; // Track if we are currently "in a trade" for P/L calculation
+                let entryPrice = 0;
+
+                for (let i = 1; i < pricesData.length; i++) {
+                    const currentPrice = pricesData[i].price;
+                    // Only consider signals after both MAs have enough data points
+                    if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
+
+                        // Buy Signal: Short MA crosses above Long MA
+                        if (shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]) {
+                            if (!inPosition) {
+                                signals.push({ index: i, type: 'buy', price: currentPrice });
+                                inPosition = true;
+                                entryPrice = currentPrice;
+                            }
+                        }
+                        // Sell Signal: Short MA crosses below Long MA
+                        else if (shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]) {
+                            if (inPosition) {
+                                signals.push({ index: i, type: 'sell', price: currentPrice, entryPrice: entryPrice });
+                                inPosition = false;
+                                entryPrice = 0; // Reset entry price
+                            }
+                        }
+                    }
+                }
+                return signals;
+            }
+
+            // --- Charting Functions ---
+
+            function drawChart(pricesData, shortMA, longMA, signals) {
+                ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height); // Clear canvas
+
+                const prices = pricesData.map(d => d.price); // Extract prices array for charting
+
+                // Get min/max prices for scaling
+                const allValues = [...prices, ...shortMA.filter(v => v !== null), ...longMA.filter(v => v !== null)];
+                const minPrice = Math.min(...allValues);
+                const maxPrice = Math.max(...allValues);
+                const priceRange = maxPrice - minPrice;
+
+                if (priceRange === 0) { // Avoid division by zero if all prices are identical
+                    showMessageBox('Price range is zero. Cannot draw chart.', 'error');
+                    return;
+                }
+
+                // Scaling factors
+                const xScale = chartCanvas.width / (prices.length - 1);
+                const yScale = chartCanvas.height / priceRange;
+
+                // Function to convert price to canvas Y coordinate
+                const getY = (price) => chartCanvas.height - ((price - minPrice) * yScale);
+                const getX = (index) => index * xScale;
+
+                // Draw X and Y axis labels
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '12px Inter';
+                // Y-axis labels
+                ctx.fillText(`$${maxPrice.toFixed(2)}`, 5, 15);
+                ctx.fillText(`$${minPrice.toFixed(2)}`, 5, chartCanvas.height - 5);
+                // X-axis (Date labels from real data, simplified for display)
+                if (pricesData.length > 0) {
+                    // Display start date
+                    const startDate = new Date(pricesData[0].date);
+                    ctx.fillText(startDate.toLocaleDateString(), 5, chartCanvas.height - 5);
+                    // Display end date
+                    const endDate = new Date(pricesData[pricesData.length - 1].date);
+                    ctx.fillText(endDate.toLocaleDateString(), chartCanvas.width - ctx.measureText(endDate.toLocaleDateString()).width - 5, chartCanvas.height - 5);
+                }
+
+
+                // Draw Price Line
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6'; // Blue
+                ctx.lineWidth = 2;
+                prices.forEach((price, i) => {
+                    if (i === 0) {
+                        ctx.moveTo(getX(i), getY(price));
+                    } else {
+                        ctx.lineTo(getX(i), getY(price));
+                    }
+                });
+                ctx.stroke();
+
+                // Draw Short MA Line
+                ctx.beginPath();
+                ctx.strokeStyle = '#ef4444'; // Red
+                ctx.lineWidth = 1.5;
+                shortMA.forEach((ma, i) => {
+                    if (ma !== null) {
+                        if (shortMA[i - 1] === null) { // Start a new path if previous was null
+                             ctx.moveTo(getX(i), getY(ma));
+                        } else {
+                             ctx.lineTo(getX(i), getY(ma));
+                        }
+                    }
+                });
+                ctx.stroke();
+
+                // Draw Long MA Line
+                ctx.beginPath();
+                ctx.strokeStyle = '#10b981'; // Green
+                ctx.lineWidth = 1.5;
+                longMA.forEach((ma, i) => {
+                    if (ma !== null) {
+                        if (longMA[i - 1] === null) { // Start a new path if previous was null
+                            ctx.moveTo(getX(i), getY(ma));
+                        } else {
+                            ctx.lineTo(getX(i), getY(ma));
+                        }
+                    }
+                });
+                ctx.stroke();
+
+                // Draw Signals
+                signals.forEach(signal => {
+                    ctx.beginPath();
+                    const x = getX(signal.index);
+                    const y = getY(prices[signal.index]); // Signal at price point
+
+                    if (signal.type === 'buy') {
+                        ctx.fillStyle = '#22c55e'; // Green for buy
+                        ctx.arc(x, y, 6, 0, Math.PI * 2); // Circle
+                    } else { // sell
+                        ctx.fillStyle = '#ef4444'; // Red for sell
+                        ctx.rect(x - 6, y - 6, 12, 12); // Square
+                    }
+                    ctx.fill();
+
+                    ctx.fillStyle = '#000'; // Text color for labels
+                    ctx.font = '10px Inter';
+                    ctx.fillText(signal.type.toUpperCase(), x + 8, y - 8);
+                });
+            }
+
+            // --- Simulation Logic ---
+
+            function runSimulation() {
+                hideMessageBox(); // Hide any previous messages
+
+                const shortPeriod = parseInt(shortMAPeriodInput.value);
+                const longPeriod = parseInt(longMAPeriodInput.value);
+
+                // Input validation
+                if (historicalPrices.length === 0) {
+                    showMessageBox('No historical data loaded. Please ensure BTC.csv is correct.', 'error');
+                    resultsDiv.classList.add('hidden');
+                    return;
+                }
+
+                if (isNaN(shortPeriod) || isNaN(longPeriod) || shortPeriod <= 0 || longPeriod <= 0) {
+                    showMessageBox('Please enter valid positive numbers for MA periods.', 'error');
+                    resultsDiv.classList.add('hidden');
+                    return;
+                }
+                if (shortPeriod >= longPeriod) {
+                    showMessageBox('Short MA period must be less than Long MA period.', 'error');
+                    resultsDiv.classList.add('hidden');
+                    return;
+                }
+                if (longPeriod > historicalPrices.length) {
+                     showMessageBox(`Long MA period (${longPeriod}) cannot be greater than the number of available data points (${historicalPrices.length}).`, 'error');
+                     resultsDiv.classList.add('hidden');
+                     return;
+                }
+
+                const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
+                const longMAValues = calculateSMA(historicalPrices, longPeriod);
+                const signals = identifyCrossovers(historicalPrices, shortMAValues, longMAValues);
+
+                // Calculate simulated profit/loss
+                let totalProfitLoss = 0;
+                let tradesCount = 0;
+                let winningTrades = 0;
+                let losingTrades = 0;
+                let currentTradeEntryPrice = null;
+
+                signals.forEach(signal => {
+                    if (signal.type === 'buy') {
+                        // If we are already in a position, close it before opening a new one
+                        if (currentTradeEntryPrice !== null) {
+                            // This scenario means an immediate reversal or missed sell signal
+                            // For simplicity, we just reset the position to the new buy signal.
+                            // A more complex model would calculate P/L for the prematurely closed position.
+                        }
+                        currentTradeEntryPrice = signal.price;
+                    } else if (signal.type === 'sell' && currentTradeEntryPrice !== null) {
+                        tradesCount++;
+                        const profitLoss = signal.price - currentTradeEntryPrice; // Assuming buying 1 unit of Bitcoin
+                        totalProfitLoss += profitLoss;
+
+                        if (profitLoss > 0) {
+                            winningTrades++;
+                        } else if (profitLoss < 0) {
+                            losingTrades++;
+                        }
+                        currentTradeEntryPrice = null; // Close position
+                    }
+                });
+
+                // If a buy signal was the last signal, assume the position is closed at the last available price
+                if (currentTradeEntryPrice !== null) {
+                    tradesCount++;
+                    const lastPrice = historicalPrices[historicalPrices.length - 1].price;
+                    const profitLoss = lastPrice - currentTradeEntryPrice;
+                    totalProfitLoss += profitLoss;
+                     if (profitLoss > 0) {
+                        winningTrades++;
+                    } else if (profitLoss < 0) {
+                        losingTrades++;
+                    }
+                }
+
+
+                // Display results
+                resultsDiv.classList.remove('hidden');
+                totalTradesSpan.textContent = `Total completed trades: ${tradesCount}`;
+                winningTradesSpan.textContent = `Winning trades: ${winningTrades}`;
+                losingTradesSpan.textContent = `Losing trades: ${losingTrades}`;
+                simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${totalProfitLoss.toFixed(2)} USD (for 1 unit of Bitcoin traded)`;
+                simulatedProfitSpan.style.color = totalProfitLoss >= 0 ? '#10b981' : '#ef4444'; // Green for profit, red for loss
+
+                // Draw the chart
+                chartCanvas.width = chartCanvas.offsetWidth; // Ensure current width is used
+                drawChart(historicalPrices, shortMAValues, longMAValues, signals);
+            }
+
+            // --- Initial Data Load and Setup ---
+            // The path for uploaded files in this environment
+            // const csvFilePath = '/__run__/resources/BTC.csv'; // This path is for uploaded files in the current environment
+
+            // Path for the GitHub raw CSV file
+            const csvFilePath = 'https://raw.githubusercontent.com/AmbiguousError/btc/main/BTC.csv';
+
+            historicalPrices = await fetchCSV(csvFilePath);
+
+            // Initial run and event listener
+            runSimulationBtn.addEventListener('click', runSimulation);
+
+            // Run simulation on initial load only if data was loaded successfully
+            if (historicalPrices.length > 0) {
+                runSimulation();
+            }
+        });
+    </script>
+</body>
+</html>
