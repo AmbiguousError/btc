@@ -180,6 +180,12 @@
             line-height: 1.6;
             color: #4a5568;
         }
+        .data-info {
+            font-size: 0.95rem;
+            color: #334155;
+            margin-bottom: 10px;
+            text-align: center;
+        }
 
 
         /* Responsive adjustments */
@@ -216,7 +222,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">USD/Bitcoin Trading Opportunity Identifier</h1>
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">1INCH/BTC Trading Opportunity Identifier</h1>
         <p class="text-gray-600 text-center mb-6">
             This model uses **real historical 1INCH/BTC price data from CryptoDataDownload.com** and applies a Moving Average Crossover strategy to identify potential buy and sell signals.
             You can adjust the periods for the short and long moving averages. Hover over the "Current Strategy Simulation" chart to see price and date details.
@@ -249,6 +255,7 @@
             <button id="runSimulationBtn" class="btn-primary mt-auto">Run Simulation</button>
         </div>
         <div id="dataLengthWarning" class="warning-message hidden"></div>
+        <p id="latestDataInfo" class="data-info hidden"></p>
 
 
         <div id="currentSimulationSection" class="chart-section mb-8">
@@ -306,7 +313,7 @@
             <div id="optimumStrategyChartSection" class="chart-section mt-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Optimum Strategy Chart</h2>
                 <canvas id="optimumChartCanvas"></canvas>
-                <div id="optimumHoverInfoBox" class="hover-info-box"></div> <!-- New hover info box for optimum chart -->
+                <div id="optimumHoverInfoBox" class="hover-info-box"></div>
             </div>
         </div>
     </div>
@@ -346,9 +353,12 @@
             const optimizationMessageBox = document.getElementById('optimizationMessageBox');
             const dataLengthWarning = document.getElementById('dataLengthWarning');
 
+            // Data Info
+            const latestDataInfo = document.getElementById('latestDataInfo');
+
             // Hover elements
-            const hoverInfoBox = document.getElementById('hoverInfoBox'); // For main chart
-            const optimumHoverInfoBox = document.getElementById('optimumHoverInfoBox'); // For optimum chart
+            const hoverInfoBox = document.getElementById('hoverInfoBox');
+            const optimumHoverInfoBox = document.getElementById('optimumHoverInfoBox');
 
 
             let historicalPrices = [];
@@ -406,10 +416,12 @@
                     const response = await fetch(filePath);
                     if (!response.ok) {
                         console.error('Fetch response not OK:', response.status, response.statusText);
-                        if (response.type === 'opaque' || (response.status === 0 && !navigator.onLine)) {
-                             throw new Error('Network/CORS Error: Data could not be loaded. This typically happens when trying to fetch from an external URL like GitHub without proper CORS headers or a proxy.');
+                        // More explicit network error handling
+                        let errorMessage = `HTTP error! status: ${response.status} - ${response.statusText}`;
+                        if (response.status === 0) { // Often means network error or CORS preflight failure
+                            errorMessage = 'Network Error: Unable to reach the server or CORS policy blocked the request. Check your internet connection or browser console for CORS details.';
                         }
-                        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+                        throw new Error(errorMessage);
                     }
                     const csvText = await response.text();
                     console.log('CSV data fetched successfully.');
@@ -447,7 +459,8 @@
                 const data = [];
                 for (let i = 1; i < lines.length; i++) {
                     const columns = lines[i].split(';');
-                    const closePrice = parseFloat(columns[closePriceIndex]);
+                    // Check if column exists before parsing
+                    const closePrice = columns[closePriceIndex] ? parseFloat(columns[closePriceIndex]) : NaN;
                     const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '') : '';
 
                     if (!isNaN(closePrice)) {
@@ -458,7 +471,7 @@
                     }
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
-                return data.reverse();
+                return data.reverse(); // Ensure chronological order
             }
 
             // --- Technical Analysis Functions ---
@@ -498,7 +511,6 @@
 
                     if (shortMA[i] !== null && longMA[i] !== null && shortMA[i - 1] !== null && longMA[i - 1] !== null) {
                         // Buy Signal: Short MA crosses above Long MA (Golden Cross)
-                        // This indicates a potential upward trend, suggesting a buying opportunity.
                         if (shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]) {
                             if (!inPosition) {
                                 signals.push({ index: i, type: 'buy', price: currentPrice });
@@ -507,7 +519,6 @@
                             }
                         }
                         // Sell Signal: Short MA crosses below Long MA (Death Cross)
-                        // This indicates a potential downward trend, suggesting a selling opportunity or exit.
                         else if (shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]) {
                             if (inPosition) {
                                 const tradeProfitLoss = currentPrice - currentTradeEntryPrice;
@@ -933,10 +944,20 @@
                 runSimulation(); // This will update the main chart and its results
             }
 
-            // Path for the new CSV file, now local as requested
-            const csvFilePath = './Binance_1INCHBTC_d.csv';
+            // Path for the CSV file (using /__run__/resources/ for Canvas environment)
+            const csvFilePath = '/__run__/resources/Binance_1INCHBTC_d.csv';
 
             historicalPrices = await fetchCSV(csvFilePath);
+
+            // Display latest data info if loaded
+            if (historicalPrices.length > 0) {
+                const latestData = historicalPrices[historicalPrices.length - 1];
+                latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price ${latestData.price.toFixed(8)} BTC`;
+                latestDataInfo.classList.remove('hidden');
+            } else {
+                latestDataInfo.classList.add('hidden');
+            }
+
 
             runSimulationBtn.addEventListener('click', runSimulation);
             findOptimumBtn.addEventListener('click', findOptimumStrategy);
