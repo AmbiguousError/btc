@@ -251,23 +251,28 @@
                     return [];
                 }
 
-                const headers = lines[0].split(';'); // Use semicolon as delimiter
-                const closePriceIndex = headers.indexOf('Close'); // Assuming 'Close' column
-                const dateIndex = headers.indexOf('Date'); // Assuming 'Date' column
+                // Updated header splitting to handle potential quotes and then split by semicolon
+                // It's safer to remove quotes from the header names before indexing
+                const rawHeaders = lines[0].split(';');
+                const headers = rawHeaders.map(h => h.trim().replace(/"/g, '')); // Trim and remove quotes
+
+                const closePriceIndex = headers.indexOf('close'); // Assuming 'close' column (lowercase now due to .replace)
+                const dateIndex = headers.indexOf('timeClose'); // Using 'timeClose' for date, as it's the timestamp for the close
 
                 if (closePriceIndex === -1) {
-                    showMessageBox('CSV missing "Close" price column.', 'error');
+                    showMessageBox('CSV missing "close" price column. Please check column headers (expected: "close").', 'error');
                     return [];
                 }
                  if (dateIndex === -1) {
-                    showMessageBox('CSV missing "Date" column. Chart x-axis labels might be less informative.', 'info');
+                    showMessageBox('CSV missing "timeClose" column. Chart x-axis labels might be less informative (expected: "timeClose").', 'info');
                 }
 
                 const data = [];
                 for (let i = 1; i < lines.length; i++) {
                     const columns = lines[i].split(';');
                     const closePrice = parseFloat(columns[closePriceIndex]);
-                    const date = columns[dateIndex]; // Keep date string for potential future use
+                    // Remove quotes from the date string if present
+                    const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '') : '';
 
                     if (!isNaN(closePrice)) {
                         data.push({
@@ -378,7 +383,7 @@
                 ctx.fillText(`$${minPrice.toFixed(2)}`, 5, chartCanvas.height - 5);
                 // X-axis (Date labels from real data, simplified for display)
                 if (pricesData.length > 0) {
-                    // Display start date
+                    // Display start date - using a more robust date parsing
                     const startDate = new Date(pricesData[0].date);
                     ctx.fillText(startDate.toLocaleDateString(), 5, chartCanvas.height - 5);
                     // Display end date
@@ -543,6 +548,7 @@
                 drawChart(historicalPrices, shortMAValues, longMAValues, signals);
             }
 
+            // --- Initial Data Load and Setup ---
             // Path for the GitHub raw CSV file
             const csvFilePath = 'https://raw.githubusercontent.com/AmbiguousError/btc/refs/heads/main/BTC.csv';
 
