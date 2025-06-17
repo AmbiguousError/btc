@@ -660,39 +660,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         
-        const createHoverListener = (container, redrawFn) => {
+        const createHoverListener = (container, redrawFn, getHoverBox) => {
              container.addEventListener('mousemove', e => {
                 const rect = container.querySelector('canvas').getBoundingClientRect();
                 redrawFn({x: e.clientX - rect.left, y: e.clientY - rect.top});
             });
             container.addEventListener('mouseout', () => {
                 redrawFn(null);
+                const hoverBox = getHoverBox();
+                if(hoverBox) hideHoverBox(hoverBox);
             });
         };
 
         createHoverListener(elements.currentSimulationSection, (hover) => {
             runSimulation(hover);
-            if (!hover) hideHoverBox(elements.hoverInfoBox);
-        });
+        }, () => elements.hoverInfoBox);
         
         createHoverListener(elements.rsiFilteredSimulationSection, (hover) => {
+            // The main runSimulation already handles redrawing this chart.
+            // We just need to trigger it.
             runSimulation(hover);
-            if (!hover) hideHoverBox(elements.rsiFilteredHoverInfoBox);
-        });
+        }, () => elements.rsiFilteredHoverInfoBox);
 
         createHoverListener(elements.optimumStrategyChartSection, (hover) => {
             if(!optimumStrategyData) return;
             const hoverInfo = hover ? { ...hover, box: elements.optimumHoverInfoBox } : null;
             drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals, hoverInfo);
-            if (!hover) hideHoverBox(elements.optimumHoverInfoBox);
-        });
+        }, () => elements.optimumHoverInfoBox);
 
         createHoverListener(elements.comprehensiveOptimumStrategyChartSection, (hover) => {
              if(!comprehensiveStrategyData) return;
              const hoverInfo = hover ? { ...hover, box: elements.comprehensiveHoverInfoBox } : null;
             drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, hoverInfo);
-             if (!hover) hideHoverBox(elements.comprehensiveHoverInfoBox);
-        });
+        }, () => elements.comprehensiveHoverInfoBox);
     }
 
     async function initialize() {
