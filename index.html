@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 1.1 -->
+    <!-- Version: 1.2 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USD/Bitcoin Trading Opportunity Identifier</title>
@@ -481,6 +481,7 @@
 
                 const rawHeaders = lines[0].split(';');
                 const headers = rawHeaders.map(h => h.trim().replace(/"/g, ''));
+                console.log('Headers after trimming and unquoting:', headers); // Debug: check processed headers
 
                 // Corrected to match the new CSV header "Close"
                 const closePriceIndex = headers.indexOf('Close'); 
@@ -505,9 +506,14 @@
                             price: closePrice,
                             date: date
                         });
+                        // Debug: log parsed row data
+                        console.log(`Parsed row ${i}: Date=${date}, Close=${closePrice}, Is NaN?=${isNaN(closePrice)}`);
+                    } else {
+                        console.log(`Skipped row ${i} due to NaN closePrice: ${columns[closePriceIndex]}`);
                     }
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
+                console.log('Historical Prices after parsing (first 5):', data.slice(0, 5)); // Debug: show first few items
                 return data.reverse(); // Ensure chronological order
             }
 
@@ -798,7 +804,7 @@
                             <strong>Long MA:</strong> ${hoverMALong}
                         `;
 
-                        // Position info box relative to the document, taking its *own* canvas position into account
+                        // Position info box relative to the document, taking its *own* canvas position into into account
                         const currentCanvasRect = ctx.canvas.getBoundingClientRect(); 
                         let boxX = hoverX + currentCanvasRect.left + 15;
                         let boxY = hoverY + currentCanvasRect.top - (hoverInfoBoxElement.offsetHeight / 2);
@@ -869,21 +875,21 @@
                 totalTradesSpan.textContent = `Total completed trades: ${performance.tradesCount}`;
                 winningTradesSpan.textContent = `Winning trades: ${performance.winningTrades}`;
                 losingTradesSpan.textContent = `Losing trades: ${performance.losingTrades}`;
-                simulatedProfitSpan.textContent = `Simulated Profit/Loss: ${performance.totalProfitLoss.toFixed(8)} BTC (for 1 unit of 1INCH traded)`; // Changed currency unit
+                simulatedProfitSpan.textContent = `Simulated Profit/Loss: ${performance.totalProfitLoss.toFixed(8)} BTC (for 1 unit of 1INCH traded)`;
                 simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444';
 
-                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox); // isMainChart = true
+                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
             }
 
-            let bestOptimumShortMA = 0; // Stored for redraw on resize
-            let bestOptimumLongMA = 0;  // Stored for redraw on resize
-            let bestOptimumPerformance = null; // Stored for redraw on resize
+            let bestOptimumShortMA = 0;
+            let bestOptimumLongMA = 0;
+            let bestOptimumPerformance = null;
 
             // --- Optimization Logic ---
             async function findOptimumStrategy() {
                 hideMessageBox(optimizationMessageBox);
                 optimizationResultsDiv.classList.add('hidden');
-                dataLengthWarning.classList.add('hidden'); // Hide general warning
+                dataLengthWarning.classList.add('hidden');
 
                 const minShort = parseInt(minShortMAInput.value);
                 const maxShort = parseInt(maxShortMAInput.value);
@@ -893,7 +899,7 @@
                 if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
                     minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
                     showMessageBox('Please enter valid positive numbers for all optimization ranges.', 'error', optimizationMessageBox);
-                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height); // Clear chart on error
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
                 if (minShort >= maxShort || minLong >= maxLong || maxShort >= minLong) {
@@ -920,7 +926,7 @@
                 let bestProfit = -Infinity;
                 let bestShortMA = 0;
                 let bestLongMA = 0;
-                bestOptimumPerformance = null; // Reset before new optimization
+                bestOptimumPerformance = null;
 
                 for (let shortPeriod = minShort; shortPeriod <= maxShort; shortPeriod++) {
                     for (let longPeriod = minLong; longPeriod <= maxLong; longPeriod++) {
@@ -947,7 +953,7 @@
 
                 optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestShortMA}`;
                 optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestLongMA}`;
-                optimumProfitSpan.textContent = `Maximum Simulated Profit: ${bestProfit.toFixed(8)} BTC`; // Changed currency unit
+                optimumProfitSpan.textContent = `Maximum Simulated Profit: ${bestProfit.toFixed(8)} BTC`;
                 optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestOptimumPerformance) {
@@ -973,15 +979,15 @@
                 if (bestOptimumPerformance) {
                     const optimumShortMAValues = calculateSMA(historicalPrices, bestShortMA);
                     const optimumLongMAValues = calculateSMA(historicalPrices, bestLongMA);
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox); // isMainChart = false
+                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 } else {
-                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height); // Clear if no best found
+                    optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                 }
 
                 // Update main simulation inputs and run it with the optimum strategy (optional, but good for quick view)
                 shortMAPeriodInput.value = bestShortMA;
                 longMAPeriodInput.value = bestLongMA;
-                runSimulation(); // This will update the main chart and its results
+                runSimulation();
             }
 
             // Path for the CSV file (using /__run__/resources/ for Canvas environment)
