@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.6 -->
+    <!-- Version: 12.7 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -1024,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
-        renderPotentialSellScenarios(performance, settings, document.getElementById('currentPotentialSellScenariosContainer'));
+        renderPotentialSellScenarios(performance, settings, document.getElementById('currentPotentialSellScenariosContainer'), filteredPrices);
 
 
         // RSI-Filtered simulation data
@@ -1032,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
-        renderPotentialSellScenarios(fullyFilteredPerformance, fullyFilteredSettings, document.getElementById('filteredPotentialSellScenariosContainer'));
+        renderPotentialSellScenarios(fullyFilteredPerformance, fullyFilteredSettings, document.getElementById('filteredPotentialSellScenariosContainer'), filteredPrices);
 
         // Initial draw without hover
         drawCurrentCharts(null);
@@ -1145,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTradesTable(bestPerf, bestSettings);
-                renderPotentialSellScenarios(bestPerf, bestSettings, elements.potentialSellScenariosContainer);
+                renderPotentialSellScenarios(bestPerf, bestSettings, elements.potentialSellScenariosContainer, filteredPrices);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
@@ -1213,8 +1213,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function renderPotentialSellScenarios(perf, settings, container) {
-        if (!container) return;
+    function renderPotentialSellScenarios(perf, settings, container, prices) {
+        if (!container || !prices || prices.length === 0) return;
         container.classList.add('hidden'); // Hide by default
 
         if (perf.inPositionAtEnd) {
@@ -1224,12 +1224,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             const buyPrice = lastBuySignal.price;
             const btcAmount = lastBuySignal.btc;
             const cashInvested = buyPrice * btcAmount;
+            const lastPrice = prices[prices.length - 1].price;
+            const currentValue = lastPrice * btcAmount;
+            const currentGrossProfit = currentValue - cashInvested;
+
 
             let scenariosHTML = `
                 <h3>Potential Sell Scenarios for Open Position</h3>
                 <p class="description-box !mt-2 !mb-3">The simulation ended with an open position bought at <strong>$${formatNumber(buyPrice)}</strong>. This final trade is included in the portfolio value but is not yet realized profit/loss. Below are the conditions that would trigger a sell based on the strategy rules:</p>
                 <ul class="list-disc pl-6 space-y-2">`;
             
+             scenariosHTML += `
+                <li>
+                    <strong>Sell Today (at last known price):</strong> Selling at the last available price of ~<strong>$${formatNumber(lastPrice)}</strong>.
+                    <br>Approx. Gross P/L: <span class="font-bold ${currentGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(currentGrossProfit)}</span>
+                </li>`;
+
             if (settings.useSLTP) {
                 const slPrice = buyPrice * (1 - settings.stopLoss / 100);
                 const slValue = slPrice * btcAmount;
