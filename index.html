@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 3.5 -->
+    <!-- Version: 3.6 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with RSI and Optimization</title>
@@ -105,6 +105,8 @@
         <div class="border-t border-gray-200 pt-6">
              <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Strategy Parameters</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="input-group"><label for="initialInvestment">Initial Investment ($):</label><input type="number" id="initialInvestment" value="100" min="1"></div>
+                <div class="input-group"><label for="taxRate">Tax Rate (%):</label><input type="number" id="taxRate" value="28" min="0" max="100"></div>
                 <div class="input-group"><label for="shortMA">Short MA Period:</label><input type="number" id="shortMA" value="2" min="2"></div>
                 <div class="input-group"><label for="longMA">Long MA Period:</label><input type="number" id="longMA" value="5" min="3"></div>
                 <div class="input-group"><label for="rsiPeriod">RSI Period:</label><input type="number" id="rsiPeriod" value="14" min="2"></div>
@@ -175,11 +177,7 @@
                         <table class="data-preview-table w-full">
                             <thead>
                                 <tr>
-                                    <th>Buy Date</th>
-                                    <th>Buy Price</th>
-                                    <th>Sell Date</th>
-                                    <th>Sell Price</th>
-                                    <th>Profit/Loss</th>
+                                    <th>Buy Date</th><th>BTC Bought</th><th>Sell Date</th><th>Gross P/L</th><th>Tax Paid</th><th>Net P/L</th>
                                 </tr>
                             </thead>
                             <tbody id="comprehensiveTradesTableBody">
@@ -212,6 +210,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Inputs
         startDate: document.getElementById('startDate'),
         endDate: document.getElementById('endDate'),
+        initialInvestment: document.getElementById('initialInvestment'),
+        taxRate: document.getElementById('taxRate'),
         shortMA: document.getElementById('shortMA'),
         longMA: document.getElementById('longMA'),
         rsiPeriod: document.getElementById('rsiPeriod'),
@@ -356,27 +356,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     function calculateStrategyPerformance(prices, shortMA, longMA, rsi, settings) {
-        let trades = { totalProfitLoss: 0, tradesCount: 0, winningTrades: 0, losingTrades: 0, signals: [] };
-        let inPosition = false, entryPrice = 0;
-        
+        let cash = settings.initialInvestment;
+        let btc = 0;
+        let signals = [];
+        const taxRate = settings.taxRate / 100;
+
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
-            const goldenCross = shortMA[i-1] <= longMA[i-1] && shortMA[i] > longMA[i];
-            const deathCross = shortMA[i-1] >= longMA[i-1] && shortMA[i] < longMA[i];
+            const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
+            const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
 
-            if (goldenCross && !inPosition && (!settings.useRsiFilter || rsi[i] < settings.rsiOverbought)) {
-                inPosition = true; entryPrice = price;
-                trades.signals.push({ index: i, type: 'buy', price });
-            } else if (deathCross && inPosition && (!settings.useRsiFilter || rsi[i] > settings.rsiOversold)) {
-                const profit = price - entryPrice;
-                trades.totalProfitLoss += profit; trades.tradesCount++;
-                profit > 0 ? trades.winningTrades++ : trades.losingTrades++;
-                trades.signals.push({ index: i, type: 'sell', price, profitLoss: profit });
-                inPosition = false;
+            if (goldenCross && cash > 0 && (!settings.useRsiFilter || rsi[i] < settings.rsiOverbought)) {
+                btc = cash / price;
+                cash = 0;
+                signals.push({ index: i, type: 'buy', price, btc, cashValue: btc * price });
+            } else if (deathCross && btc > 0 && (!settings.useRsiFilter || rsi[i] > settings.rsiOversold)) {
+                const sellValue = btc * price;
+                const buyValue = signals[signals.length - 1].cashValue;
+                const grossProfit = sellValue - buyValue;
+                const tax = grossProfit > 0 ? grossProfit * taxRate : 0;
+                const netProfit = grossProfit - tax;
+
+                cash = sellValue - tax;
+                btc = 0;
+                signals.push({ index: i, type: 'sell', price, btc: btc, cashValue: cash, grossProfit, tax, netProfit });
             }
         }
-        return trades;
+        
+        const finalValue = btc > 0 ? btc * prices[prices.length - 1].price : cash;
+        return { signals, finalValue };
     }
+
 
     // --- Charting ---
     function setupCanvas(canvas) {
@@ -536,6 +546,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Simulation & Optimization Logic ---
     function getSettings() {
         return {
+            initialInvestment: parseFloat(elements.initialInvestment.value),
+            taxRate: parseFloat(elements.taxRate.value),
             shortPeriod: parseInt(elements.shortMA.value),
             longPeriod: parseInt(elements.longMA.value),
             rsiPeriod: parseInt(elements.rsiPeriod.value),
@@ -547,14 +559,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    function renderPerformanceResults(container, perf) {
-        const profitColor = perf.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600';
+    function renderPerformanceResults(container, perf, initialInvestment) {
+        const netProfit = perf.finalValue - initialInvestment;
+        const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
+        const trades = perf.signals.filter(s => s.type === 'sell');
+
         showResults(container, `
             <h3>Results:</h3>
-            <p>Total completed trades: ${perf.tradesCount}</p>
-            <p>Winning trades: ${perf.winningTrades}</p>
-            <p>Losing trades: ${perf.losingTrades}</p>
-            <p>Simulated Profit/Loss: <span class="${profitColor}">$${perf.totalProfitLoss.toFixed(2)} USD</span></p>
+            <p>Final Portfolio Value: <span class="font-bold">$${perf.finalValue.toFixed(2)}</span></p>
+            <p>Net Profit/Loss: <span class="font-bold ${profitColor}">$${netProfit.toFixed(2)}</span></p>
+            <p>Total completed trades: ${trades.length}</p>
         `);
     }
 
@@ -575,7 +589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Normal simulation
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, settings);
-        renderPerformanceResults(elements.currentSimulationResults, performance);
+        renderPerformanceResults(elements.currentSimulationResults, performance, settings.initialInvestment);
         drawChart(elements.currentChartCanvas, filteredPrices, shortMA, longMA, performance.signals, hoverInfo ? { ...hoverInfo, box: elements.hoverInfoBox } : null);
         const {ctx, width, height} = setupCanvas(elements.rsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo ? { ...hoverInfo, box: elements.hoverInfoBox } : null);
@@ -583,7 +597,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // RSI-Filtered simulation
         const rsiFilteredSettings = {...settings, useRsiFilter: true};
         const rsiFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, rsiFilteredSettings);
-        renderPerformanceResults(elements.rsiFilteredSimulationResults, rsiFilteredPerformance);
+        renderPerformanceResults(elements.rsiFilteredSimulationResults, rsiFilteredPerformance, settings.initialInvestment);
         drawChart(elements.rsiFilteredChartCanvas, filteredPrices, shortMA, longMA, rsiFilteredPerformance.signals, hoverInfo ? { ...hoverInfo, box: elements.rsiFilteredHoverInfoBox } : null);
         const {ctx: rsiFCtx, width: rsiFWidth, height: rsiFHeight} = setupCanvas(elements.rsiFilteredRsiChartCanvas);
         drawRSIChart(rsiFCtx, rsiFWidth, rsiFHeight, rsi, settings, hoverInfo ? { ...hoverInfo, box: elements.rsiFilteredHoverInfoBox } : null);
@@ -599,7 +613,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
 
         setTimeout(() => {
-            let bestPerf = { totalProfitLoss: -Infinity }, bestShort = 0, bestLong = 0;
+            let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
             const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
 
             const loopRunner = () => {
@@ -639,7 +653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const shortMA = calculateSMA(filteredPrices, short);
                 const longMA = calculateSMA(filteredPrices, long);
                 const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, {...settings, shortPeriod: short, longPeriod: long});
-                if (perf.totalProfitLoss > bestPerf.totalProfitLoss) {
+                if (perf.finalValue > bestPerf.finalValue) {
                     bestPerf = perf; bestShort = short; bestLong = long;
                 }
             };
@@ -647,12 +661,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             loopRunner();
 
             hideSpinner(spinner);
-            const profitColor = bestPerf.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600';
+            const netProfit = bestPerf.finalValue - settings.initialInvestment;
+            const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
             showResults(container, `
                 <h3>Optimum Strategy Found:</h3>
                 <p>Short MA: ${bestShort}, Long MA: ${bestLong}</p>
-                <p>Total Trades: ${bestPerf.tradesCount}, Wins: ${bestPerf.winningTrades}</p>
-                <p>Max Profit: <span class="${profitColor}">$${bestPerf.totalProfitLoss.toFixed(2)}</span></p>
+                <p>Final Value: <span class="font-bold">$${bestPerf.finalValue.toFixed(2)}</span></p>
+                <p>Net Profit: <span class="font-bold ${profitColor}">$${netProfit.toFixed(2)}</span></p>
             `);
 
             const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
@@ -693,13 +708,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             trades.forEach(trade => {
                 const row = elements.comprehensiveTradesTableBody.insertRow();
                 row.insertCell().textContent = new Date(pricesData[trade.buy.index].date).toLocaleDateString();
-                row.insertCell().textContent = `$${trade.buy.price.toFixed(2)}`;
+                row.insertCell().textContent = `${trade.buy.btc.toFixed(6)}`;
                 row.insertCell().textContent = new Date(pricesData[trade.sell.index].date).toLocaleDateString();
-                row.insertCell().textContent = `$${trade.sell.price.toFixed(2)}`;
-                const profitCell = row.insertCell();
-                const profit = trade.sell.profitLoss;
-                profitCell.textContent = `$${profit.toFixed(2)}`;
-                profitCell.className = profit >= 0 ? 'text-green-600' : 'text-red-600';
+                const grossCell = row.insertCell();
+                grossCell.textContent = `$${trade.sell.grossProfit.toFixed(2)}`;
+                grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
+                const taxCell = row.insertCell();
+                taxCell.textContent = `$${trade.sell.tax.toFixed(2)}`;
+                const netCell = row.insertCell();
+                netCell.textContent = `$${trade.sell.netProfit.toFixed(2)}`;
+                netCell.className = trade.sell.netProfit >= 0 ? 'text-green-600' : 'text-red-600';
+
             });
             elements.comprehensiveTradesTableContainer.classList.remove('hidden');
         } else {
@@ -712,7 +731,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         
-        const createHoverListener = (container, redrawFn, getHoverBox) => {
+        const createHoverListener = (container, redrawFn) => {
              if (!container) { return; }
              container.addEventListener('mousemove', e => {
                 const rect = container.querySelector('canvas').getBoundingClientRect();
@@ -720,30 +739,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             container.addEventListener('mouseout', () => {
                 redrawFn(null);
-                const hoverBox = getHoverBox();
-                if(hoverBox) hideHoverBox(hoverBox);
             });
         };
 
         createHoverListener(elements.currentSimulationSection, (hover) => {
             runSimulation(hover);
-        }, () => elements.hoverInfoBox);
+            if (!hover) hideHoverBox(elements.hoverInfoBox);
+        });
         
         createHoverListener(elements.rsiFilteredSimulationSection, (hover) => {
             runSimulation(hover);
-        }, () => elements.rsiFilteredHoverInfoBox);
+            if (!hover) hideHoverBox(elements.rsiFilteredHoverInfoBox);
+        });
 
         createHoverListener(elements.optimumStrategyChartSection, (hover) => {
             if(!optimumStrategyData) return;
             const hoverInfo = hover ? { ...hover, box: elements.optimumHoverInfoBox } : null;
             drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals, hoverInfo);
-        }, () => elements.optimumHoverInfoBox);
+            if (!hover) hideHoverBox(elements.optimumHoverInfoBox);
+        });
 
         createHoverListener(elements.comprehensiveOptimumStrategyChartSection, (hover) => {
              if(!comprehensiveStrategyData) return;
              const hoverInfo = hover ? { ...hover, box: elements.comprehensiveHoverInfoBox } : null;
             drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, hoverInfo);
-        }, () => elements.comprehensiveHoverInfoBox);
+             if (!hover) hideHoverBox(elements.comprehensiveHoverInfoBox);
+        });
     }
 
     async function initialize() {
