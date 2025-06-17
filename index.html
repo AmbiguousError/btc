@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 1.2 -->
+    <!-- Version: 1.3 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USD/Bitcoin Trading Opportunity Identifier</title>
@@ -479,7 +479,8 @@
                     return [];
                 }
 
-                const rawHeaders = lines[0].split(';');
+                // Skip the first line (which is just the website URL) and get the actual headers from the second line
+                const rawHeaders = lines[0].split(','); // Changed to comma delimiter
                 const headers = rawHeaders.map(h => h.trim().replace(/"/g, ''));
                 console.log('Headers after trimming and unquoting:', headers); // Debug: check processed headers
 
@@ -496,8 +497,9 @@
                 }
 
                 const data = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const columns = lines[i].split(';');
+                // Start iterating from the *second* line for actual data, as the first line is website URL
+                for (let i = 1; i < lines.length; i++) { // Adjusted loop start
+                    const columns = lines[i].split(','); // Changed to comma delimiter
                     const closePrice = columns[closePriceIndex] ? parseFloat(columns[closePriceIndex]) : NaN;
                     const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '') : '';
 
@@ -507,9 +509,9 @@
                             date: date
                         });
                         // Debug: log parsed row data
-                        console.log(`Parsed row ${i}: Date=${date}, Close=${closePrice}, Is NaN?=${isNaN(closePrice)}`);
+                        // console.log(`Parsed row ${i}: Date=${date}, Close=${closePrice}, Is NaN?=${isNaN(closePrice)}`);
                     } else {
-                        console.log(`Skipped row ${i} due to NaN closePrice: ${columns[closePriceIndex]}`);
+                        // console.log(`Skipped row ${i} due to NaN closePrice: ${columns[closePriceIndex]}`);
                     }
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
