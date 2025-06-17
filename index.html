@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 8.1 (Patched) -->
+    <!-- Version: 7.6 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -59,12 +59,6 @@
             box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
         }
         .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); }
-        .btn-secondary {
-            background-color: #64748b;
-        }
-        .btn-secondary:hover {
-             background-color: #475569;
-        }
         .btn-ai {
             background-color: #8b5cf6; /* A nice purple */
         }
@@ -136,17 +130,11 @@
         </div>
 
         <div class="border-t border-gray-200 pt-6">
-             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">Strategy Parameters</h2>
-                <div class="flex gap-2">
-                    <button id="getAISuggestionsBtn" class="btn-primary btn-ai text-sm">✨ Get AI Suggestions</button>
-                    <button id="resetToDefaultsBtn" class="btn-primary btn-secondary text-sm">Reset</button>
-                </div>
-            </div>
+             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Strategy Parameters</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="input-group"><label for="initialInvestment">Initial Investment ($):</label><input type="number" id="initialInvestment" value="100" min="1"></div>
                 <div class="input-group"><label for="taxRate">Tax Rate (%):</label><input type="number" id="taxRate" value="28" min="0" max="100"></div>
-                <div class="input-group"><label for="serviceFee">Service Fee (%):</label><input type="number" id="serviceFee" value="5" min="0" max="10" step="0.1"></div>
+                <div class="input-group"><label for="serviceFee">Service Fee (%):</label><input type="number" id="serviceFee" value="0.1" min="0" max="10" step="0.1"></div>
                 <div class="input-group"><label for="shortMA">Short MA Period:</label><input type="number" id="shortMA" value="2" min="2"></div>
                 <div class="input-group"><label for="longMA">Long MA Period:</label><input type="number" id="longMA" value="5" min="3"></div>
                 <div class="input-group"><label for="rsiPeriod">RSI Period:</label><input type="number" id="rsiPeriod" value="14" min="2"></div>
@@ -240,10 +228,11 @@
                             </thead>
                             <tbody id="comprehensiveTradesTableBody">
                             </tbody>
+                             <tfoot id="comprehensiveTradesTableFooter">
+                            </tfoot>
                         </table>
                     </div>
                 </div>
-                 <div id="comprehensiveTradesSummaryContainer" class="results-box mt-4 hidden"></div>
             </div>
         </div>
     </div>
@@ -257,7 +246,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let rsiFilteredStrategyData = null;
     let optimumStrategyData = null;
     let comprehensiveStrategyData = null;
-    let defaultSettings = {};
 
     // --- DOM Element Cache ---
     const elements = {
@@ -296,8 +284,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxLongMA: document.getElementById('maxLongMA'),
         // Buttons
         runSimulationBtn: document.getElementById('runSimulationBtn'),
-        getAISuggestionsBtn: document.getElementById('getAISuggestionsBtn'),
-        resetToDefaultsBtn: document.getElementById('resetToDefaultsBtn'),
         findOptimumBtn: document.getElementById('findOptimumBtn'),
         findComprehensiveOptimumBtn: document.getElementById('findComprehensiveOptimumBtn'),
         // Spinners
@@ -317,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comprehensiveOptimumStrategyChartSection: document.getElementById('comprehensiveOptimumStrategyChartSection'),
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
         comprehensiveTradesTableBody: document.getElementById('comprehensiveTradesTableBody'),
-        comprehensiveTradesSummaryContainer: document.getElementById('comprehensiveTradesSummaryContainer'),
+        comprehensiveTradesTableFooter: document.getElementById('comprehensiveTradesTableFooter'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
@@ -987,7 +973,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const signals = perf.signals;
         const pricesData = filteredPrices;
         elements.comprehensiveTradesTableBody.innerHTML = '';
-        
+        elements.comprehensiveTradesTableFooter.innerHTML = '';
         const trades = [];
         let buySignal = null;
         for (const signal of signals) {
@@ -998,9 +984,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 buySignal = null;
             }
         }
-
-        elements.comprehensiveTradesTableContainer.classList.toggle('hidden', trades.length === 0);
-        elements.comprehensiveTradesSummaryContainer.classList.toggle('hidden', trades.length === 0);
 
         if(trades.length > 0){
             let totalGrossProfit = 0;
@@ -1020,14 +1003,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
             const netProfit = totalGrossProfit - fee - tax;
 
-            const summaryHTML = `
-                <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Summary:</h4>
-                <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(totalGrossProfit)}</span></p>
-                <p>Service Fees: <span class="text-red-600">-$${formatNumber(fee)}</span></p>
-                <p>Tax on Gains: <span class="text-red-600">-$${formatNumber(tax)}</span></p>
-                <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
+            const footerRow = elements.comprehensiveTradesTableFooter.insertRow();
+            footerRow.insertCell().colSpan = 3;
+            footerRow.insertCell().innerHTML = `
+                <div class="text-right">
+                    <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(totalGrossProfit)}</span></p>
+                    <p>Service Fees: <span class="text-red-600">-$${formatNumber(fee)}</span></p>
+                    <p>Tax on Gains: <span class="text-red-600">-$${formatNumber(tax)}</span></p>
+                    <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
+                </div>
             `;
-            showResults(elements.comprehensiveTradesSummaryContainer, summaryHTML);
+            
+            elements.comprehensiveTradesTableContainer.classList.remove('hidden');
+        } else {
+            elements.comprehensiveTradesTableContainer.classList.add('hidden');
         }
     }
     
@@ -1082,10 +1071,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "";
-            const baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-            const apiUrl = apiKey ? `${baseUrl}?key=${apiKey}` : baseUrl;
-
+            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1106,110 +1093,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             resultBox.innerHTML = `<p class="text-red-500">An error occurred while analyzing the strategy. Please check the console for details.</p>`;
         }
     }
-    
-    function setDefaults() {
-        Object.keys(defaultSettings).forEach(key => {
-            if(elements[key] && elements[key].type === 'checkbox') {
-                elements[key].checked = defaultSettings[key];
-            } else if (elements[key]) {
-                elements[key].value = defaultSettings[key];
-            }
-        });
-        runSimulation();
-    }
-    
-    async function getAISuggestions() {
-        const btn = elements.getAISuggestionsBtn;
-        btn.innerHTML = '<div class="loading-spinner" style="display: inline-block; border-top-color: white;"></div>';
-        btn.disabled = true;
-        
-        const recentData = filteredPrices.slice(-30);
-        let context = "Suggest a set of parameters for a BTC/USD trading strategy.";
-        if(recentData.length > 1) {
-            const startPrice = recentData[0].price;
-            const endPrice = recentData[recentData.length - 1].price;
-            const trend = endPrice > startPrice ? 'uptrend' : 'downtrend';
-            context += ` The market has been in a general ${trend} over the last 30 days, moving from approximately $${Math.round(startPrice)} to $${Math.round(endPrice)}.`;
-        }
-         context += " Provide a balanced strategy. The short MA must be less than the long MA.";
-
-
-        const schema = {
-            type: "OBJECT",
-            properties: {
-                "shortMA": { "type": "INTEGER" },
-                "longMA": { "type": "INTEGER" },
-                "rsiPeriod": { "type": "INTEGER" },
-                "rsiOverbought": { "type": "INTEGER" },
-                "rsiOversold": { "type": "INTEGER" },
-                "bbPeriod": { "type": "INTEGER" },
-                "bbStdDev": { "type": "NUMBER" },
-                "volumeMAPeriod": { "type": "INTEGER" },
-                "stopLoss": { "type": "NUMBER" },
-                "takeProfit": { "type": "NUMBER" },
-                "useSLTP": { "type": "BOOLEAN" },
-                "useRsiFilter": { "type": "BOOLEAN" },
-                "useBBFilter": { "type": "BOOLEAN" },
-                "useVolumeFilter": { "type": "BOOLEAN" }
-            }
-        };
-
-        const prompt = context;
-        
-        try {
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { 
-                contents: chatHistory,
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: schema
-                }
-            };
-            const apiKey = "";
-            const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-            const apiUrl = apiKey ? `${baseUrl}?key=${apiKey}` : baseUrl;
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                let jsonText = result.candidates[0].content.parts[0].text;
-                // Clean markdown fences if they exist
-                jsonText = jsonText.replace(/```json|```/g, '').trim();
-                const suggestions = JSON.parse(jsonText);
-                Object.keys(suggestions).forEach(key => {
-                    if(elements[key]){
-                        if(elements[key].type === 'checkbox'){
-                            elements[key].checked = suggestions[key];
-                        } else {
-                            elements[key].value = suggestions[key];
-                        }
-                    }
-                });
-                runSimulation();
-            } else {
-                console.error("AI suggestions response was empty or malformed:", result);
-                alert("Could not get AI suggestions. The model returned an empty response.");
-            }
-        } catch (error) {
-            console.error("Error calling Gemini API for suggestions:", error);
-            alert(`An error occurred while getting AI suggestions: ${error.message}`);
-        } finally {
-            btn.innerHTML = '✨ Get AI Suggestions';
-            btn.disabled = false;
-        }
-    }
 
 
     function setupEventListeners() {
@@ -1217,8 +1100,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
-        elements.getAISuggestionsBtn.addEventListener('click', getAISuggestions);
-        elements.resetToDefaultsBtn.addEventListener('click', setDefaults);
 
         
         const createHoverListener = (container, redrawFn, getHoverBox) => {
@@ -1251,7 +1132,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function initialize() {
-        defaultSettings = getSettings();
         historicalPrices = await fetchCSV('./btc-usd-max.csv');
         if (historicalPrices.length > 0) {
             const lastDate = new Date(historicalPrices[historicalPrices.length - 1].date);
