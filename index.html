@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.6 -->
+    <!-- Version: 2.7 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -465,13 +465,13 @@
             let filteredPrices = []; // Data subset used for current simulation/optimization (based on date range)
 
             // These are now initialized once in the outer scope
-            let bestOptimumShortMA_outer; // Renamed to clearly indicate outer scope
-            let bestOptimumLongMA_outer;  // Renamed
-            let bestOptimumPerformance_outer; // Renamed
+            let bestOptimumShortMA_outer; 
+            let bestOptimumLongMA_outer; 
+            let bestOptimumPerformance_outer; 
 
-            let bestComprehensiveShortMA_outer; // Renamed
-            let bestComprehensiveLongMA_outer;  // Renamed
-            let bestComprehensivePerformance_outer; // Renamed
+            let bestComprehensiveShortMA_outer; 
+            let bestComprehensiveLongMA_outer;  
+            let bestComprehensivePerformance_outer; 
 
 
             // Set canvas dimensions
@@ -1051,8 +1051,8 @@
 
                         const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > currentBestProfit_local) { // Compare with local bestProfit
-                            currentBestProfit_local = performance.totalProfitLoss; // Assign to local bestProfit
+                        if (performance.totalProfitLoss > currentBestProfit_local) { 
+                            currentBestProfit_local = performance.totalProfitLoss; 
                             currentBestShortMA_local = shortPeriod;
                             currentBestLongMA_local = longPeriod;
                             currentBestPerformance_local = performance;
@@ -1071,7 +1071,7 @@
 
                 optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestOptimumShortMA_outer}`;
                 optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestOptimumLongMA_outer}`;
-                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit_local.toFixed(2)} USD`; // Use local variable for display
+                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit_local.toFixed(2)} USD`; 
                 optimumProfitSpan.style.color = currentBestProfit_local >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestOptimumPerformance_outer) {
@@ -1084,9 +1084,9 @@
                     optimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (currentBestProfit_local <= 0 && bestOptimumPerformance_outer && bestOptimumPerformance_outer.tradesCount > 0) { // Use local bestProfit
+                if (currentBestProfit_local <= 0 && bestOptimumPerformance_outer && bestOptimumPerformance_outer.tradesCount > 0) { 
                      showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', optimizationMessageBox);
-                } else if (currentBestProfit_local <= 0 && bestOptimumPerformance_outer && bestOptimumPerformance_outer.tradesCount === 0) { // Use local bestProfit
+                } else if (currentBestProfit_local <= 0 && bestOptimumPerformance_outer && bestOptimumPerformance_outer.tradesCount === 0) { 
                      showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
                 }
                 else {
@@ -1161,8 +1161,8 @@
 
                         const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > currentBestProfit_local) { // Compare with local bestProfit
-                            currentBestProfit_local = performance.totalProfitLoss; // Assign to local bestProfit
+                        if (performance.totalProfitLoss > currentBestProfit_local) { 
+                            currentBestProfit_local = performance.totalProfitLoss; 
                             currentBestComprehensiveShortMA_local = shortPeriod;
                             currentBestComprehensiveLongMA_local = longPeriod;
                             currentBestComprehensivePerformance_local = performance;
@@ -1181,7 +1181,7 @@
 
                 compOptimumShortMASpan.textContent = `Optimum Short MA Period: ${bestComprehensiveShortMA_outer}`;
                 compOptimumLongMASpan.textContent = `Optimum Long MA Period: ${bestComprehensiveLongMA_outer}`;
-                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit_local.toFixed(2)} USD`; // Use local bestProfit
+                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit_local.toFixed(2)} USD`; 
                 compOptimumProfitSpan.style.color = currentBestProfit_local >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestComprehensivePerformance_outer) {
@@ -1231,7 +1231,7 @@
                 // Show first 5 rows (oldest)
                 for (let i = 0; i < Math.min(numRowsToShow, 5); i++) {
                     const rowData = dataToDisplay[i];
-                    const row = dataPreviewTableBody.insertCell();
+                    const row = dataPreviewTableBody.insertRow(); // Corrected: insert row first
                     const dateCell = row.insertCell();
                     const priceCell = row.insertCell();
                     dateCell.textContent = new Date(rowData.date).toLocaleDateString();
@@ -1254,7 +1254,7 @@
                     const startLastFive = Math.max(dataToDisplay.length - 5, Math.min(numRowsToShow, 5));
                     for (let i = startLastFive; i < dataToDisplay.length; i++) {
                         const rowData = dataToDisplay[i];
-                        const row = dataPreviewTableBody.insertRow();
+                        const row = dataPreviewTableBody.insertRow(); // Corrected: insert row first
                         const dateCell = row.insertCell();
                         const priceCell = row.insertCell();
                         dateCell.textContent = new Date(rowData.date).toLocaleDateString();
