@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 7.2 -->
+    <!-- Version: 7.3 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -315,9 +315,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         aiAnalysisResultBox: document.getElementById('aiAnalysisResultBox'),
     };
 
-    // --- Message/UI Helpers ---
+    // --- Helper Functions ---
     const showSpinner = spinner => spinner.style.display = 'block';
     const hideSpinner = spinner => spinner.style.display = 'none';
+
+    function formatNumber(num, decimals = 2) {
+        if (typeof num !== 'number') return num;
+        return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
     
     function showResults(container, content) {
         container.innerHTML = content;
@@ -390,7 +395,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cell.style.textAlign = 'center';
             } else {
                 row.insertCell().textContent = new Date(rowData.date).toLocaleDateString();
-                row.insertCell().textContent = `$${rowData.price.toFixed(2)}`;
+                row.insertCell().textContent = `$${formatNumber(rowData.price)}`;
             }
         });
         elements.dataPreviewSection.classList.remove('hidden');
@@ -600,11 +605,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const i = Math.round(hoverInfo.x / xScale);
             if (pricesData[i]) {
                 const infoHtml = `<strong>Date:</strong> ${new Date(pricesData[i].date).toLocaleDateString()}<br>
-                                  <strong>Price:</strong> $${prices[i].toFixed(2)}<br>
-                                  <strong>Short MA:</strong> ${shortMA[i]?.toFixed(2) || 'N/A'}<br>
-                                  <strong>Long MA:</strong> ${longMA[i]?.toFixed(2) || 'N/A'}<br>
-                                  <strong>BB Upper:</strong> ${bb.upper[i]?.toFixed(2) || 'N/A'}<br>
-                                  <strong>BB Lower:</strong> ${bb.lower[i]?.toFixed(2) || 'N/A'}`;
+                                  <strong>Price:</strong> $${formatNumber(prices[i])}<br>
+                                  <strong>Short MA:</strong> ${shortMA[i] ? '$' + formatNumber(shortMA[i]) : 'N/A'}<br>
+                                  <strong>Long MA:</strong> ${longMA[i] ? '$' + formatNumber(longMA[i]) : 'N/A'}<br>
+                                  <strong>BB Upper:</strong> ${bb.upper[i] ? '$' + formatNumber(bb.upper[i]) : 'N/A'}<br>
+                                  <strong>BB Lower:</strong> ${bb.lower[i] ? '$' + formatNumber(bb.lower[i]) : 'N/A'}`;
                 showHoverBox(hoverInfo.box, infoHtml, hoverInfo.x, hoverInfo.y, canvas);
             }
         } else if (hoverInfo) {
@@ -621,7 +626,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const y = (height / numYLabels) * i;
             const price = max - (i * (height / numYLabels) / height * (max - min));
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
-            ctx.textAlign = 'right'; ctx.fillText(price.toFixed(2), width - 5, y - 5);
+            ctx.textAlign = 'right'; ctx.fillText(`$${formatNumber(price)}`, width - 5, y - 5);
         }
         
         const numXLabels = Math.min(Math.floor(width / 100), pricesData.length);
@@ -687,7 +692,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const i = Math.round(hoverInfo.x / xScale);
             if (rsiData[i] !== null) {
                 const currentHoverText = hoverInfo.box.innerHTML;
-                const rsiText = `<br><strong>RSI:</strong> ${rsiData[i].toFixed(2)}`;
+                const rsiText = `<br><strong>RSI:</strong> ${formatNumber(rsiData[i])}`;
                 if (hoverInfo.box && !currentHoverText.includes(rsiText)) {
                      hoverInfo.box.innerHTML += rsiText;
                 }
@@ -724,7 +729,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const i = Math.round(hoverInfo.x / xScale);
             if (pricesData[i]) {
                 const currentHoverText = hoverInfo.box.innerHTML;
-                const volumeText = `<br><strong>Volume:</strong> ${pricesData[i].volume.toLocaleString()}`;
+                const volumeText = `<br><strong>Volume:</strong> ${formatNumber(pricesData[i].volume, 0)}`;
                 if (hoverInfo.box && !currentHoverText.includes(volumeText)) {
                      hoverInfo.box.innerHTML += volumeText;
                 }
@@ -803,11 +808,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         showResults(container, `
             <h3>Results:</h3>
-            <p>Final Portfolio Value (Pre-Tax/Fee): <span class="font-bold">$${perf.preTaxFinalValue.toFixed(2)}</span></p>
-            <p>Tax on Gains: <span class="font-bold text-red-600">-$${tax.toFixed(2)}</span></p>
-             <p>Service Fees: <span class="font-bold text-red-600">-$${fee.toFixed(2)}</span></p>
-            <p>Final Net Value (Post-Tax/Fee): <span class="font-bold">$${perf.finalValue.toFixed(2)}</span></p>
-            <p>Net Profit/Loss: <span class="font-bold ${profitColor}">$${netProfit.toFixed(2)}</span></p>
+            <p>Final Portfolio Value (Pre-Tax/Fee): <span class="font-bold">$${formatNumber(perf.preTaxFinalValue)}</span></p>
+            <p>Tax on Gains: <span class="font-bold text-red-600">-$${formatNumber(tax)}</span></p>
+             <p>Service Fees: <span class="font-bold text-red-600">-$${formatNumber(fee)}</span></p>
+            <p>Final Net Value (Post-Tax/Fee): <span class="font-bold">$${formatNumber(perf.finalValue)}</span></p>
+            <p>Net Profit/Loss: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
             <p>Total completed trades: ${trades.length}</p>
         `);
     }
@@ -936,8 +941,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             showResults(container, `
                 <h3>Optimum Strategy Found:</h3>
                 <p>Short MA: ${bestShort}, Long MA: ${bestLong}</p>
-                <p>Final Value: <span class="font-bold">$${bestPerf.finalValue.toFixed(2)}</span></p>
-                <p>Net Profit: <span class="font-bold ${profitColor}">$${netProfit.toFixed(2)}</span></p>
+                <p>Final Value: <span class="font-bold">$${formatNumber(bestPerf.finalValue)}</span></p>
+                <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
             `);
 
             const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimizationResults;
@@ -989,7 +994,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 row.insertCell().textContent = `${trade.buy.btc.toFixed(6)}`;
                 row.insertCell().textContent = new Date(pricesData[trade.sell.index].date).toLocaleDateString();
                 const grossCell = row.insertCell();
-                grossCell.textContent = `$${trade.sell.grossProfit.toFixed(2)}`;
+                grossCell.textContent = `$${formatNumber(trade.sell.grossProfit)}`;
                 grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
             });
             
@@ -1002,10 +1007,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             footerRow.insertCell().colSpan = 3;
             footerRow.insertCell().innerHTML = `
                 <div class="text-right">
-                    <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${totalGrossProfit.toFixed(2)}</span></p>
-                    <p>Service Fees: <span class="text-red-600">-$${fee.toFixed(2)}</span></p>
-                    <p>Tax on Gains: <span class="text-red-600">-$${tax.toFixed(2)}</span></p>
-                    <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${netProfit.toFixed(2)}</span></p>
+                    <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(totalGrossProfit)}</span></p>
+                    <p>Service Fees: <span class="text-red-600">-$${formatNumber(fee)}</span></p>
+                    <p>Tax on Gains: <span class="text-red-600">-$${formatNumber(tax)}</span></p>
+                    <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
                 </div>
             `;
             
@@ -1049,9 +1054,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         - ${filters}
 
         **Performance Results:**
-        - Initial Investment: $${settings.initialInvestment.toFixed(2)}
-        - Final Net Value (after tax/fees): $${finalValue.toFixed(2)}
-        - Net Profit/Loss: $${netProfit.toFixed(2)}
+        - Initial Investment: $${formatNumber(settings.initialInvestment)}
+        - Final Net Value (after tax/fees): $${formatNumber(finalValue)}
+        - Net Profit/Loss: $${formatNumber(netProfit)}
         - Number of Trades: ${numTrades}
 
         **Your Task:**
@@ -1066,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -1143,3 +1148,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+        
