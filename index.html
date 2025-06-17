@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 7.1 -->
+    <!-- Version: 7.2 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -173,10 +173,6 @@
             <canvas id="volumeChartCanvas" class="mt-4"></canvas>
             <div id="hoverInfoBox" class="hover-info-box"></div>
             <div id="currentSimulationResults" class="results-box hidden mt-4"></div>
-            <div id="aiAnalysisContainer" class="mt-4 hidden">
-                <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full">✨ Analyze Strategy with AI</button>
-                <div id="aiAnalysisResultBox" class="ai-analysis-box hidden mt-4"></div>
-            </div>
         </div>
 
         <div id="rsiFilteredSimulationSection" class="chart-section mt-6 border-t-4 border-indigo-300 pt-6">
@@ -217,6 +213,10 @@
                  <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">Comprehensive Optimum Strategy Chart</h3>
                 <canvas id="comprehensiveOptimumChartCanvas"></canvas>
                 <div id="comprehensiveOptimumHoverInfoBox" class="hover-info-box"></div>
+                 <div id="aiAnalysisContainer" class="mt-4 hidden">
+                    <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full">✨ Analyze Optimum Strategy with AI</button>
+                    <div id="aiAnalysisResultBox" class="ai-analysis-box hidden mt-4"></div>
+                </div>
                 <div id="comprehensiveTradesTableContainer" class="mt-4 hidden">
                     <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Log:</h4>
                     <div class="overflow-x-auto">
@@ -843,7 +843,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const maxPeriod = Math.max(settings.longPeriod, settings.rsiPeriod, settings.bbPeriod, settings.volumeMAPeriod);
         if (filteredPrices.length < maxPeriod) {
             showResults(elements.currentSimulationResults, `<div class="warning-message">Not enough data. Need ${maxPeriod}, have ${filteredPrices.length}.</div>`);
-            elements.aiAnalysisContainer.classList.add('hidden');
             return;
         }
 
@@ -857,9 +856,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
-        elements.aiAnalysisContainer.classList.remove('hidden');
-        elements.aiAnalysisResultBox.classList.add('hidden');
-
 
         // RSI-Filtered simulation data
         const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true, useVolumeFilter: true};
@@ -880,6 +876,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         showSpinner(spinner);
         showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
+        elements.aiAnalysisContainer.classList.add('hidden');
+        elements.aiAnalysisResultBox.classList.add('hidden');
+
 
         setTimeout(() => {
             let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
@@ -949,9 +948,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const optimumSettings = {...settings, shortPeriod: bestShort, longPeriod: bestLong};
 
             if(isComprehensive){
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings};
+                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTradesTable(bestPerf, settings);
+                elements.aiAnalysisContainer.classList.remove('hidden');
+
             } else {
                 optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings);
@@ -1015,52 +1016,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     async function analyzeStrategyWithAI() {
-        if (!currentStrategyData) {
-            alert("Please run a simulation first.");
+        if (!comprehensiveStrategyData) {
+            alert("Please run a Comprehensive Optimization first.");
             return;
         }
 
-        const { settings, performance } = currentStrategyData;
+        const { settings, performance } = comprehensiveStrategyData;
         const resultBox = elements.aiAnalysisResultBox;
         resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
         resultBox.classList.remove('hidden');
 
-        const { finalValue, preTaxFinalValue } = currentStrategyData.performance;
+        const { finalValue, preTaxFinalValue } = performance;
         const netProfit = finalValue - settings.initialInvestment;
-        const numTrades = currentStrategyData.signals.filter(s => s.type === 'sell').length;
+        const numTrades = performance.signals.filter(s => s.type === 'sell').length;
 
-        const filtersUsed = [
-            `RSI (${settings.useRsiFilter})`,
-            `Bollinger Bands (${settings.useBBFilter})`,
-            `Volume (${settings.useVolumeFilter})`,
-            `SL/TP (${settings.useSLTP})`
-        ].join(', ');
+        const filters = [
+            `Stop-Loss/Take-Profit: ${settings.useSLTP ? `Enabled (${settings.stopLoss}% / ${settings.takeProfit}%)` : 'Disabled'}`,
+            `RSI Filter: ${settings.useRsiFilter ? `Enabled (Period: ${settings.rsiPeriod}, Levels: ${settings.rsiOversold}/${settings.rsiOverbought})` : 'Disabled'}`,
+            `Bollinger Bands Filter: ${settings.useBBFilter ? `Enabled (Period: ${settings.bbPeriod}, StdDev: ${settings.bbStdDev})` : 'Disabled'}`,
+            `Volume Filter: ${settings.useVolumeFilter ? `Enabled (MA Period: ${settings.volumeMAPeriod})` : 'Disabled'}`
+        ].join('\n- ');
 
         const prompt = `You are a helpful trading strategy analyst.
 
-        Based on the following trading strategy parameters and its performance results for Bitcoin (BTC/USD) over a specific historical period, provide a concise analysis.
+        Based on the following **optimized** trading strategy parameters and its performance results for Bitcoin (BTC/USD), provide a concise analysis.
 
-        **Strategy Parameters:**
-        - Short-term Moving Average: ${settings.shortPeriod} days
-        - Long-term Moving Average: ${settings.longPeriod} days
-        - RSI Period: ${settings.rsiPeriod}
-        - RSI Overbought/Oversold: ${settings.rsiOverbought}/${settings.rsiOversold}
-        - Bollinger Bands Period/Std Dev: ${settings.bbPeriod}/${settings.bbStdDev}
-        - Stop-Loss: ${settings.stopLoss}%
-        - Take-Profit: ${settings.takeProfit}%
-        - Filters Used: ${filtersUsed}
+        **Strategy Context:**
+        - The strategy was tested on historical data from **${settings.startDate} to ${settings.endDate}**.
+        - The system found the optimal Moving Average combination to be **Short MA: ${settings.shortPeriod}** and **Long MA: ${settings.longPeriod}**.
+
+        **Strategy Rules & Filters:**
+        - ${filters}
 
         **Performance Results:**
         - Initial Investment: $${settings.initialInvestment.toFixed(2)}
-        - Final Net Value: $${finalValue.toFixed(2)}
+        - Final Net Value (after tax/fees): $${finalValue.toFixed(2)}
         - Net Profit/Loss: $${netProfit.toFixed(2)}
         - Number of Trades: ${numTrades}
 
         **Your Task:**
         Write a brief, easy-to-understand analysis (2-3 paragraphs) in HTML format. Use <p> tags for paragraphs. Cover:
-        1. A summary of the strategy's overall approach (e.g., "This is a trend-following strategy with added momentum and volatility confirmation...").
-        2. An interpretation of its performance. Is the profit/loss significant? Is the number of trades high or low for the period?
-        3. Potential strengths and weaknesses based on the parameters (e.g., "Its strengths might be in capturing strong trends, but the tight stop-loss could lead to being shaken out of positions prematurely...").
+        1. A summary of the strategy's overall approach, mentioning the core MA crossover and the specific confirmation filters that were applied.
+        2. An interpretation of its performance. Was the optimized strategy profitable? Is the number of trades high or low for the period?
+        3. Potential strengths and weaknesses based on the **complete set of rules** that were active for this optimization. For example, mention how the combination of MA periods and active filters likely influenced the outcome.
 
         Do not give financial advice. The analysis should be based *only* on the provided data.`;
 
@@ -1068,7 +1066,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
