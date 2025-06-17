@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 4.0 -->
+    <!-- Version: 5.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC/USD Trading Opportunity Identifier with Bollinger Bands</title>
+    <title>BTC/USD Trading Opportunity Identifier with Volume</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -41,7 +41,7 @@
             aspect-ratio: 16 / 9;
              max-height: 450px;
         }
-        #rsiChartCanvas, #rsiFilteredRsiChartCanvas {
+        #rsiChartCanvas, #rsiFilteredRsiChartCanvas, #volumeChartCanvas, #filteredVolumeChartCanvas {
             aspect-ratio: 16 / 5;
             max-height: 150px;
         }
@@ -87,12 +87,9 @@
         <div class="explanation-box">
             <h3>How Signals Are Calculated</h3>
             <p><strong>1. Moving Average (MA) Crossover Strategy:</strong> The core signals are generated when a short-term MA crosses a long-term MA.</p>
-            <ul>
-                <li><strong>Buy (Golden Cross):</strong> Short MA crosses *above* Long MA.</li>
-                <li><strong>Sell (Death Cross):</strong> Short MA crosses *below* Long MA.</li>
-            </ul>
             <p class="mt-4"><strong>2. Optional RSI Filter:</strong> The RSI (0-100) measures momentum. If enabled, it filters MA signals based on overbought/oversold conditions.</p>
              <p class="mt-4"><strong>3. Optional Bollinger Bands (BB) Filter:</strong> The BBs measure volatility. If enabled, they filter signals based on price relative to the middle band.</p>
+             <p class="mt-4"><strong>4. Optional Volume Filter:</strong> If enabled, a signal is only valid if the trading volume is above its recent average, suggesting stronger conviction.</p>
         </div>
         
         <div class="date-range-section grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -113,11 +110,14 @@
                 <div class="input-group"><label for="rsiOversold">RSI Oversold:</label><input type="number" id="rsiOversold" value="30" max="49"></div>
                 <div class="input-group"><label for="bbPeriod">BB Period:</label><input type="number" id="bbPeriod" value="20" min="2"></div>
                 <div class="input-group"><label for="bbStdDev">BB Std Dev:</label><input type="number" id="bbStdDev" value="2" min="1" step="0.1"></div>
-                <div class="checkbox-group mt-4 col-span-2 md:col-span-4">
+                 <div class="input-group"><label for="volumeMAPeriod">Volume MA Period:</label><input type="number" id="volumeMAPeriod" value="20" min="2"></div>
+                <div class="checkbox-group mt-4 col-span-2 md:col-span-4 flex-wrap">
                     <input type="checkbox" id="useRsiFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useRsiFilter" class="mr-4">Use RSI Filter</label>
                      <input type="checkbox" id="useBBFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                    <label for="useBBFilter">Use BB Filter</label>
+                    <label for="useBBFilter" class="mr-4">Use BB Filter</label>
+                    <input type="checkbox" id="useVolumeFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <label for="useVolumeFilter">Use Volume Filter</label>
                 </div>
             </div>
             <button id="runSimulationBtn" class="btn-primary w-full mt-6">Run Simulation</button>
@@ -133,6 +133,7 @@
             <div id="loadingSpinner" class="loading-spinner"></div>
             <canvas id="currentChartCanvas"></canvas>
             <canvas id="rsiChartCanvas" class="mt-4"></canvas>
+            <canvas id="volumeChartCanvas" class="mt-4"></canvas>
             <div id="hoverInfoBox" class="hover-info-box"></div>
             <div id="currentSimulationResults" class="results-box hidden mt-4"></div>
         </div>
@@ -142,6 +143,7 @@
              <p class="text-gray-600 text-center mb-6">This is a copy of the simulation above, but with all filters forcibly enabled.</p>
             <canvas id="rsiFilteredChartCanvas"></canvas>
             <canvas id="rsiFilteredRsiChartCanvas" class="mt-4"></canvas>
+            <canvas id="filteredVolumeChartCanvas" class="mt-4"></canvas>
             <div id="rsiFilteredHoverInfoBox" class="hover-info-box"></div>
             <div id="rsiFilteredSimulationResults" class="results-box hidden mt-4"></div>
         </div>
@@ -209,8 +211,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Canvases
         currentChartCanvas: document.getElementById('currentChartCanvas'),
         rsiChartCanvas: document.getElementById('rsiChartCanvas'),
+        volumeChartCanvas: document.getElementById('volumeChartCanvas'),
         rsiFilteredChartCanvas: document.getElementById('rsiFilteredChartCanvas'),
         rsiFilteredRsiChartCanvas: document.getElementById('rsiFilteredRsiChartCanvas'),
+        filteredVolumeChartCanvas: document.getElementById('filteredVolumeChartCanvas'),
         optimumChartCanvas: document.getElementById('optimumChartCanvas'),
         comprehensiveOptimumChartCanvas: document.getElementById('comprehensiveOptimumChartCanvas'),
         // Inputs
@@ -228,6 +232,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         bbPeriod: document.getElementById('bbPeriod'),
         bbStdDev: document.getElementById('bbStdDev'),
         useBBFilter: document.getElementById('useBBFilter'),
+        volumeMAPeriod: document.getElementById('volumeMAPeriod'),
+        useVolumeFilter: document.getElementById('useVolumeFilter'),
         minShortMA: document.getElementById('minShortMA'),
         maxShortMA: document.getElementById('maxShortMA'),
         minLongMA: document.getElementById('minLongMA'),
@@ -291,13 +297,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const closePriceIndex = headers.indexOf('price');
         const dateIndex = headers.indexOf('snapped_at');
+        const volumeIndex = headers.indexOf('total_volume'); // Assuming this is the volume column name
         if (closePriceIndex === -1 || dateIndex === -1) throw new Error('CSV missing "price" or "snapped_at" column.');
-        
+        if(volumeIndex === -1) console.warn("Volume data not found in CSV. Volume filter will be disabled.");
+
         return lines.slice(1).map(line => {
             const cols = line.split(',');
             const price = parseFloat(cols[closePriceIndex]);
             const date = cols[dateIndex]?.replace(/"/g, '').replace(' UTC', '');
-            return !isNaN(price) && date ? { price, date } : null;
+            const volume = volumeIndex > -1 ? parseFloat(cols[volumeIndex]) : 0;
+            return !isNaN(price) && date ? { price, date, volume } : null;
         }).filter(Boolean);
     }
     
@@ -340,10 +349,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- Technical Analysis Calculations ---
-    const calculateSMA = (data, period) => {
+    const calculateSMA = (data, period, key = 'price') => {
         const sma = Array(data.length).fill(null);
         for (let i = period - 1; i < data.length; i++) {
-            sma[i] = data.slice(i - period + 1, i + 1).reduce((sum, d) => sum + d.price, 0) / period;
+            sma[i] = data.slice(i - period + 1, i + 1).reduce((sum, d) => sum + d[key], 0) / period;
         }
         return sma;
     };
@@ -385,26 +394,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { middle, upper, lower };
     }
 
-    function calculateStrategyPerformance(prices, shortMA, longMA, rsi, bb, settings) {
+    function calculateStrategyPerformance(prices, shortMA, longMA, rsi, bb, volumeSMA, settings) {
         let cash = settings.initialInvestment;
         let btc = 0;
         let signals = [];
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
+            const volume = prices[i].volume;
             const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
             const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
 
             const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
             const bbConditionBuy = !settings.useBBFilter || price < bb.middle[i];
+            const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
             
-            if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy) {
+            if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
                 btc = cash / price;
                 cash = 0;
                 signals.push({ index: i, type: 'buy', price, btc });
             } else if (deathCross && btc > 0) {
                  const bbConditionSell = !settings.useBBFilter || price > bb.middle[i];
-                 if(bbConditionSell) {
+                 if(bbConditionSell && volumeCondition) {
                     cash = btc * price;
                     btc = 0;
                     
@@ -460,7 +471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const getY = price => height - ((price - min) * yScale);
         
         // Bollinger Bands Area
-        ctx.fillStyle = 'rgba(165, 180, 252, 0.1)'; // Light indigo fill
+        ctx.fillStyle = 'rgba(165, 180, 252, 0.1)'; 
         const upperPoints = bb.upper.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}).filter(Boolean);
         const lowerPoints = bb.lower.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}).filter(Boolean).reverse();
         
@@ -481,8 +492,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         drawDataLine(ctx, createPoints(longMA, getY), '#10b981', 1.5);
         
         // Bollinger Bands Lines
-        drawDataLine(ctx, createPoints(bb.upper, getY), 'rgba(129, 140, 248, 0.5)', 1, true); // Dashed
-        drawDataLine(ctx, createPoints(bb.lower, getY), 'rgba(129, 140, 248, 0.5)', 1, true); // Dashed
+        drawDataLine(ctx, createPoints(bb.upper, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
+        drawDataLine(ctx, createPoints(bb.lower, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
         
         signals.forEach(s => {
             const x = getX(s.index), y = getY(s.price);
@@ -573,6 +584,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
+
+    function drawVolumeChart(canvas, pricesData, volumeSMA, hoverInfo) {
+        const { ctx, width, height } = setupCanvas(canvas);
+        ctx.clearRect(0, 0, width, height);
+
+        const volume = pricesData.map(d => d.volume);
+        if(volume.length === 0 || volume.every(v => v === 0)) return;
+
+        const maxVolume = Math.max(...volume);
+        const xScale = width / (volume.length - 1 || 1);
+        const yScale = height / maxVolume;
+
+        const getX = i => i * xScale;
+        const getY = v => height - (v * yScale);
+
+        // Draw Volume Bars
+        const barWidth = width / volume.length * 0.8;
+        volume.forEach((v, i) => {
+            ctx.fillStyle = i > 0 && pricesData[i].price < pricesData[i-1].price ? 'rgba(239, 68, 68, 0.6)' : 'rgba(34, 197, 94, 0.6)';
+            ctx.fillRect(getX(i) - barWidth / 2, getY(v), barWidth, v * yScale);
+        });
+
+        // Draw Volume SMA
+        const createPoints = (data, yFunc) => data.map((d, i) => d === null ? null : {x: getX(i), y: yFunc(d)});
+        drawDataLine(ctx, createPoints(volumeSMA, getY), 'rgba(55, 65, 81, 0.8)', 1.5);
+
+         if (hoverInfo && hoverInfo.x !== -1) {
+            const i = Math.round(hoverInfo.x / xScale);
+            if (pricesData[i]) {
+                const currentHoverText = hoverInfo.box.innerHTML;
+                const volumeText = `<br><strong>Volume:</strong> ${pricesData[i].volume.toLocaleString()}`;
+                if (hoverInfo.box && !currentHoverText.includes(volumeText)) {
+                     hoverInfo.box.innerHTML += volumeText;
+                }
+            }
+        }
+    }
     
     function drawDataLine(ctx, points, color, width, isDashed = false) {
         ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width;
@@ -623,6 +671,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             bbPeriod: parseInt(elements.bbPeriod.value),
             bbStdDev: parseFloat(elements.bbStdDev.value),
             useBBFilter: elements.useBBFilter.checked,
+            volumeMAPeriod: parseInt(elements.volumeMAPeriod.value),
+            useVolumeFilter: elements.useVolumeFilter.checked,
             startDate: elements.startDate.value,
             endDate: elements.endDate.value,
         };
@@ -651,18 +701,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Main Drawing Functions ---
     function drawCurrentCharts(hoverInfo) {
         if (!currentStrategyData) return;
-        const { prices, shortMA, longMA, rsi, bb, signals, settings } = currentStrategyData;
+        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = currentStrategyData;
         drawChart(elements.currentChartCanvas, prices, shortMA, longMA, bb, signals, hoverInfo);
+        
         const { ctx, width, height } = setupCanvas(elements.rsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
+        
+        drawVolumeChart(elements.volumeChartCanvas, prices, volumeSMA, hoverInfo);
     }
 
     function drawRsiFilteredCharts(hoverInfo) {
         if (!rsiFilteredStrategyData) return;
-        const { prices, shortMA, longMA, rsi, bb, signals, settings } = rsiFilteredStrategyData;
+        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = rsiFilteredStrategyData;
         drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, bb, signals, hoverInfo);
+        
         const { ctx, width, height } = setupCanvas(elements.rsiFilteredRsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
+
+        drawVolumeChart(elements.filteredVolumeChartCanvas, prices, volumeSMA, hoverInfo);
     }
     
     function runSimulation() {
@@ -670,26 +726,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate);
         updateDataPreviewTable(filteredPrices);
         
-        const maxPeriod = Math.max(settings.longPeriod, settings.rsiPeriod, settings.bbPeriod);
+        const maxPeriod = Math.max(settings.longPeriod, settings.rsiPeriod, settings.bbPeriod, settings.volumeMAPeriod);
         if (filteredPrices.length < maxPeriod) {
             showResults(elements.currentSimulationResults, `<div class="warning-message">Not enough data. Need ${maxPeriod}, have ${filteredPrices.length}.</div>`);
             return;
         }
 
-        const shortMA = calculateSMA(filteredPrices, settings.shortPeriod);
-        const longMA = calculateSMA(filteredPrices, settings.longPeriod);
+        const shortMA = calculateSMA(filteredPrices, settings.shortPeriod, 'price');
+        const longMA = calculateSMA(filteredPrices, settings.longPeriod, 'price');
         const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
         const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
+        const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
         
         // Normal simulation data
-        const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, settings);
-        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, signals: performance.signals, settings };
+        const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
+        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
 
         // RSI-Filtered simulation data
-        const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true};
-        const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, fullyFilteredSettings);
-        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings };
+        const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true, useVolumeFilter: true};
+        const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
+        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
 
         // Initial draw without hover
@@ -710,6 +767,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
             const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
             const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
+            const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
 
             const loopRunner = () => {
                 if (isComprehensive) {
@@ -745,9 +803,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const runTest = (short, long) => {
-                const shortMA = calculateSMA(filteredPrices, short);
-                const longMA = calculateSMA(filteredPrices, long);
-                const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, {...settings, shortPeriod: short, longPeriod: long});
+                const shortMA = calculateSMA(filteredPrices, short, 'price');
+                const longMA = calculateSMA(filteredPrices, long, 'price');
+                const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, {...settings, shortPeriod: short, longPeriod: long});
                 if (perf.finalValue > bestPerf.finalValue) {
                     bestPerf = perf; bestShort = short; bestLong = long;
                 }
@@ -768,15 +826,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimizationResults;
             const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
             chartSection.classList.remove('hidden');
-            const bestShortMA = calculateSMA(filteredPrices, bestShort);
-            const bestLongMA = calculateSMA(filteredPrices, bestLong);
+            const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
+            const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
 
             if(isComprehensive){
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
+                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals);
                 renderTradesTable(bestPerf, settings);
             } else {
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
+                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals);
             }
 
@@ -887,4 +945,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 </script>
 </body>
-</html>
+</ht
