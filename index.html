@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 3.6 -->
+    <!-- Version: 3.7 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with RSI and Optimization</title>
@@ -178,7 +178,7 @@
                         <table class="data-preview-table w-full">
                             <thead>
                                 <tr>
-                                    <th>Buy Date</th><th>BTC Bought</th><th>Sell Date</th><th>Gross P/L</th><th>Tax Paid</th><th>Net P/L</th>
+                                    <th>Buy Date</th><th>BTC Bought</th><th>Sell Date</th><th>Gross P/L</th>
                                 </tr>
                             </thead>
                             <tbody id="comprehensiveTradesTableBody">
@@ -364,8 +364,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         let cash = settings.initialInvestment;
         let btc = 0;
         let signals = [];
-        const taxRate = settings.taxRate / 100;
-        const serviceFee = settings.serviceFee / 100;
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
@@ -373,33 +371,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
 
             if (goldenCross && cash > 0 && (!settings.useRsiFilter || rsi[i] < settings.rsiOverbought)) {
-                const cashToInvest = cash;
-                const fee = cashToInvest * serviceFee;
-                const netCashForBtc = cashToInvest - fee;
-                
-                btc = netCashForBtc / price;
+                btc = cash / price;
                 cash = 0;
-                signals.push({ index: i, type: 'buy', price, btc, cost: cashToInvest });
+                signals.push({ index: i, type: 'buy', price, btc });
             } else if (deathCross && btc > 0 && (!settings.useRsiFilter || rsi[i] > settings.rsiOversold)) {
-                const grossSellValue = btc * price;
-                const fee = grossSellValue * serviceFee;
-                const netSellValue = grossSellValue - fee;
-
-                const buySignal = signals.filter(s => s.type === 'buy').pop();
-                const buyCost = buySignal.cost;
-                
-                const grossProfit = netSellValue - buyCost;
-                const tax = grossProfit > 0 ? grossProfit * taxRate : 0;
-                const netProfit = grossProfit - tax;
-
-                cash = netSellValue - tax;
+                cash = btc * price;
                 btc = 0;
-                signals.push({ index: i, type: 'sell', price, btc: 0, cashValue: cash, grossProfit, tax, netProfit });
+                
+                const buySignal = signals.filter(s => s.type === 'buy').pop();
+                const grossProfit = cash - (buySignal.btc * buySignal.price);
+                signals.push({ index: i, type: 'sell', price, grossProfit });
             }
         }
         
-        const finalValue = btc > 0 ? (btc * prices[prices.length - 1].price) * (1 - serviceFee) : cash;
-        return { signals, finalValue };
+        let finalValue = btc > 0 ? btc * prices[prices.length - 1].price : cash;
+        
+        const totalProfit = finalValue - settings.initialInvestment;
+        let finalNetValue = finalValue;
+
+        if (totalProfit > 0) {
+            const fee = totalProfit * (settings.serviceFee / 100);
+            const taxableProfit = totalProfit - fee;
+            const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
+            finalNetValue = finalValue - fee - tax;
+        }
+        
+        return { signals, finalValue: finalNetValue, preTaxFinalValue: finalValue };
     }
 
 
@@ -575,14 +572,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    function renderPerformanceResults(container, perf, initialInvestment) {
-        const netProfit = perf.finalValue - initialInvestment;
+    function renderPerformanceResults(container, perf, settings) {
+        const netProfit = perf.finalValue - settings.initialInvestment;
         const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
         const trades = perf.signals.filter(s => s.type === 'sell');
+        const totalProfit = perf.preTaxFinalValue - settings.initialInvestment;
+        const fee = totalProfit > 0 ? totalProfit * (settings.serviceFee / 100) : 0;
+        const taxableProfit = totalProfit > 0 ? totalProfit - fee : 0;
+        const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
 
         showResults(container, `
             <h3>Results:</h3>
-            <p>Final Portfolio Value: <span class="font-bold">$${perf.finalValue.toFixed(2)}</span></p>
+            <p>Final Portfolio Value (Pre-Tax/Fee): <span class="font-bold">$${perf.preTaxFinalValue.toFixed(2)}</span></p>
+            <p>Tax on Gains: <span class="font-bold text-red-600">-$${tax.toFixed(2)}</span></p>
+             <p>Service Fees: <span class="font-bold text-red-600">-$${fee.toFixed(2)}</span></p>
+            <p>Final Net Value (Post-Tax/Fee): <span class="font-bold">$${perf.finalValue.toFixed(2)}</span></p>
             <p>Net Profit/Loss: <span class="font-bold ${profitColor}">$${netProfit.toFixed(2)}</span></p>
             <p>Total completed trades: ${trades.length}</p>
         `);
@@ -623,13 +627,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Normal simulation data
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, signals: performance.signals, settings };
-        renderPerformanceResults(elements.currentSimulationResults, performance, settings.initialInvestment);
+        renderPerformanceResults(elements.currentSimulationResults, performance, settings);
 
         // RSI-Filtered simulation data
         const rsiFilteredSettings = {...settings, useRsiFilter: true};
         const rsiFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, rsiFilteredSettings);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, signals: rsiFilteredPerformance.signals, settings: rsiFilteredSettings };
-        renderPerformanceResults(elements.rsiFilteredSimulationResults, rsiFilteredPerformance, settings.initialInvestment);
+        renderPerformanceResults(elements.rsiFilteredSimulationResults, rsiFilteredPerformance, settings);
 
         // Initial draw without hover
         drawCurrentCharts(null);
@@ -746,12 +750,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const grossCell = row.insertCell();
                 grossCell.textContent = `$${trade.sell.grossProfit.toFixed(2)}`;
                 grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
-                const taxCell = row.insertCell();
-                taxCell.textContent = `$${trade.sell.tax.toFixed(2)}`;
-                const netCell = row.insertCell();
-                netCell.textContent = `$${trade.sell.netProfit.toFixed(2)}`;
-                netCell.className = trade.sell.netProfit >= 0 ? 'text-green-600' : 'text-red-600';
-
             });
             elements.comprehensiveTradesTableContainer.classList.remove('hidden');
         } else {
