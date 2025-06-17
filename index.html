@@ -104,15 +104,16 @@
 
         <div class="border-t border-gray-200 pt-6">
              <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Strategy Parameters</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="input-group"><label for="initialInvestment">Initial Investment ($):</label><input type="number" id="initialInvestment" value="100" min="1"></div>
                 <div class="input-group"><label for="taxRate">Tax Rate (%):</label><input type="number" id="taxRate" value="28" min="0" max="100"></div>
+                <div class="input-group"><label for="serviceFee">Service Fee (%):</label><input type="number" id="serviceFee" value="0.1" min="0" max="10" step="0.1"></div>
                 <div class="input-group"><label for="shortMA">Short MA Period:</label><input type="number" id="shortMA" value="2" min="2"></div>
                 <div class="input-group"><label for="longMA">Long MA Period:</label><input type="number" id="longMA" value="5" min="3"></div>
                 <div class="input-group"><label for="rsiPeriod">RSI Period:</label><input type="number" id="rsiPeriod" value="14" min="2"></div>
                 <div class="input-group"><label for="rsiOverbought">RSI Overbought:</label><input type="number" id="rsiOverbought" value="70" min="51"></div>
                 <div class="input-group"><label for="rsiOversold">RSI Oversold:</label><input type="number" id="rsiOversold" value="30" max="49"></div>
-                <div class="checkbox-group mt-4 col-span-1 md:col-span-3">
+                <div class="checkbox-group mt-4 col-span-2 md:col-span-4">
                     <input type="checkbox" id="useRsiFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useRsiFilter">Use RSI to Filter Signals</label>
                 </div>
@@ -194,9 +195,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Global Variables ---
     let historicalPrices = [];
     let filteredPrices = [];
+    let currentStrategyData = null;
+    let rsiFilteredStrategyData = null;
     let optimumStrategyData = null;
     let comprehensiveStrategyData = null;
-
 
     // --- DOM Element Cache ---
     const elements = {
@@ -212,6 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         endDate: document.getElementById('endDate'),
         initialInvestment: document.getElementById('initialInvestment'),
         taxRate: document.getElementById('taxRate'),
+        serviceFee: document.getElementById('serviceFee'),
         shortMA: document.getElementById('shortMA'),
         longMA: document.getElementById('longMA'),
         rsiPeriod: document.getElementById('rsiPeriod'),
@@ -237,6 +240,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         rsiFilteredSimulationResults: document.getElementById('rsiFilteredSimulationResults'),
         optimizationResults: document.getElementById('optimizationResults'),
         comprehensiveOptimizationResults: document.getElementById('comprehensiveOptimizationResults'),
+        currentSimulationSection: document.getElementById('currentSimulationSection'),
+        rsiFilteredSimulationSection: document.getElementById('rsiFilteredSimulationSection'),
         optimumStrategyChartSection: document.getElementById('optimumStrategyChartSection'),
         comprehensiveOptimumStrategyChartSection: document.getElementById('comprehensiveOptimumStrategyChartSection'),
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
@@ -360,6 +365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let btc = 0;
         let signals = [];
         const taxRate = settings.taxRate / 100;
+        const serviceFee = settings.serviceFee / 100;
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
@@ -367,23 +373,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
 
             if (goldenCross && cash > 0 && (!settings.useRsiFilter || rsi[i] < settings.rsiOverbought)) {
-                btc = cash / price;
+                const cashToInvest = cash;
+                const fee = cashToInvest * serviceFee;
+                const netCashForBtc = cashToInvest - fee;
+                
+                btc = netCashForBtc / price;
                 cash = 0;
-                signals.push({ index: i, type: 'buy', price, btc, cashValue: btc * price });
+                signals.push({ index: i, type: 'buy', price, btc, cost: cashToInvest });
             } else if (deathCross && btc > 0 && (!settings.useRsiFilter || rsi[i] > settings.rsiOversold)) {
-                const sellValue = btc * price;
-                const buyValue = signals[signals.length - 1].cashValue;
-                const grossProfit = sellValue - buyValue;
+                const grossSellValue = btc * price;
+                const fee = grossSellValue * serviceFee;
+                const netSellValue = grossSellValue - fee;
+
+                const buySignal = signals.filter(s => s.type === 'buy').pop();
+                const buyCost = buySignal.cost;
+                
+                const grossProfit = netSellValue - buyCost;
                 const tax = grossProfit > 0 ? grossProfit * taxRate : 0;
                 const netProfit = grossProfit - tax;
 
-                cash = sellValue - tax;
+                cash = netSellValue - tax;
                 btc = 0;
-                signals.push({ index: i, type: 'sell', price, btc: btc, cashValue: cash, grossProfit, tax, netProfit });
+                signals.push({ index: i, type: 'sell', price, btc: 0, cashValue: cash, grossProfit, tax, netProfit });
             }
         }
         
-        const finalValue = btc > 0 ? btc * prices[prices.length - 1].price : cash;
+        const finalValue = btc > 0 ? (btc * prices[prices.length - 1].price) * (1 - serviceFee) : cash;
         return { signals, finalValue };
     }
 
@@ -548,6 +563,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return {
             initialInvestment: parseFloat(elements.initialInvestment.value),
             taxRate: parseFloat(elements.taxRate.value),
+            serviceFee: parseFloat(elements.serviceFee.value),
             shortPeriod: parseInt(elements.shortMA.value),
             longPeriod: parseInt(elements.longMA.value),
             rsiPeriod: parseInt(elements.rsiPeriod.value),
@@ -571,8 +587,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             <p>Total completed trades: ${trades.length}</p>
         `);
     }
+    
+    // --- Main Drawing Functions ---
+    function drawCurrentCharts(hoverInfo) {
+        if (!currentStrategyData) return;
+        const { prices, shortMA, longMA, rsi, signals, settings } = currentStrategyData;
+        drawChart(elements.currentChartCanvas, prices, shortMA, longMA, signals, hoverInfo);
+        const { ctx, width, height } = setupCanvas(elements.rsiChartCanvas);
+        drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
+    }
 
-    function runSimulation(hoverInfo = null) {
+    function drawRsiFilteredCharts(hoverInfo) {
+        if (!rsiFilteredStrategyData) return;
+        const { prices, shortMA, longMA, rsi, signals, settings } = rsiFilteredStrategyData;
+        drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, signals, hoverInfo);
+        const { ctx, width, height } = setupCanvas(elements.rsiFilteredRsiChartCanvas);
+        drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
+    }
+    
+    function runSimulation() {
         const settings = getSettings();
         filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate);
         updateDataPreviewTable(filteredPrices);
@@ -587,20 +620,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const longMA = calculateSMA(filteredPrices, settings.longPeriod);
         const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
         
-        // Normal simulation
+        // Normal simulation data
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, settings);
+        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, signals: performance.signals, settings };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings.initialInvestment);
-        drawChart(elements.currentChartCanvas, filteredPrices, shortMA, longMA, performance.signals, hoverInfo ? { ...hoverInfo, box: elements.hoverInfoBox } : null);
-        const {ctx, width, height} = setupCanvas(elements.rsiChartCanvas);
-        drawRSIChart(ctx, width, height, rsi, settings, hoverInfo ? { ...hoverInfo, box: elements.hoverInfoBox } : null);
 
-        // RSI-Filtered simulation
+        // RSI-Filtered simulation data
         const rsiFilteredSettings = {...settings, useRsiFilter: true};
         const rsiFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, rsiFilteredSettings);
+        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, signals: rsiFilteredPerformance.signals, settings: rsiFilteredSettings };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, rsiFilteredPerformance, settings.initialInvestment);
-        drawChart(elements.rsiFilteredChartCanvas, filteredPrices, shortMA, longMA, rsiFilteredPerformance.signals, hoverInfo ? { ...hoverInfo, box: elements.rsiFilteredHoverInfoBox } : null);
-        const {ctx: rsiFCtx, width: rsiFWidth, height: rsiFHeight} = setupCanvas(elements.rsiFilteredRsiChartCanvas);
-        drawRSIChart(rsiFCtx, rsiFWidth, rsiFHeight, rsi, settings, hoverInfo ? { ...hoverInfo, box: elements.rsiFilteredHoverInfoBox } : null);
+
+        // Initial draw without hover
+        drawCurrentCharts(null);
+        drawRsiFilteredCharts(null);
     }
     
     function findOptimum(isComprehensive = false) {
@@ -670,18 +703,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p>Net Profit: <span class="font-bold ${profitColor}">$${netProfit.toFixed(2)}</span></p>
             `);
 
-            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
+            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimizationResults;
             const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
             chartSection.classList.remove('hidden');
             const bestShortMA = calculateSMA(filteredPrices, bestShort);
             const bestLongMA = calculateSMA(filteredPrices, bestLong);
 
             if(isComprehensive){
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals};
+                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals, rsi, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals);
                 renderTradesTable(bestPerf.signals, filteredPrices);
             } else {
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals};
+                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals, rsi, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals);
             }
 
@@ -727,44 +760,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function setupEventListeners() {
-        elements.runSimulationBtn.addEventListener('click', () => runSimulation());
+        elements.runSimulationBtn.addEventListener('click', runSimulation);
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         
-        const createHoverListener = (container, redrawFn) => {
-             if (!container) { return; }
+        const createHoverListener = (container, redrawFn, getHoverBox) => {
+             if (!container) return;
              container.addEventListener('mousemove', e => {
                 const rect = container.querySelector('canvas').getBoundingClientRect();
-                redrawFn({x: e.clientX - rect.left, y: e.clientY - rect.top});
+                redrawFn({x: e.clientX - rect.left, y: e.clientY - rect.top, box: getHoverBox()});
             });
             container.addEventListener('mouseout', () => {
                 redrawFn(null);
+                const hoverBox = getHoverBox();
+                if(hoverBox) hideHoverBox(hoverBox);
             });
         };
 
-        createHoverListener(elements.currentSimulationSection, (hover) => {
-            runSimulation(hover);
-            if (!hover) hideHoverBox(elements.hoverInfoBox);
-        });
-        
-        createHoverListener(elements.rsiFilteredSimulationSection, (hover) => {
-            runSimulation(hover);
-            if (!hover) hideHoverBox(elements.rsiFilteredHoverInfoBox);
-        });
+        createHoverListener(elements.currentSimulationSection, drawCurrentCharts, () => elements.hoverInfoBox);
+        createHoverListener(elements.rsiFilteredSimulationSection, drawRsiFilteredCharts, () => elements.rsiFilteredHoverInfoBox);
 
         createHoverListener(elements.optimumStrategyChartSection, (hover) => {
             if(!optimumStrategyData) return;
-            const hoverInfo = hover ? { ...hover, box: elements.optimumHoverInfoBox } : null;
-            drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals, hoverInfo);
-            if (!hover) hideHoverBox(elements.optimumHoverInfoBox);
-        });
+            drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals, hover);
+        }, () => elements.optimumHoverInfoBox);
 
         createHoverListener(elements.comprehensiveOptimumStrategyChartSection, (hover) => {
              if(!comprehensiveStrategyData) return;
-             const hoverInfo = hover ? { ...hover, box: elements.comprehensiveHoverInfoBox } : null;
-            drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, hoverInfo);
-             if (!hover) hideHoverBox(elements.comprehensiveHoverInfoBox);
-        });
+            drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, hover);
+        }, () => elements.comprehensiveHoverInfoBox);
     }
 
     async function initialize() {
