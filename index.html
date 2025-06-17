@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 7.0 -->
+    <!-- Version: 7.1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -59,6 +59,12 @@
             box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
         }
         .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); }
+        .btn-ai {
+            background-color: #8b5cf6; /* A nice purple */
+        }
+        .btn-ai:hover {
+            background-color: #7c3aed;
+        }
         .results-box { background-color: #edf2f7; border-radius: 10px; padding: 20px; border: 1px solid #d1d5db; }
         .explanation-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
         .explanation-box h3, .results-box h3, .optimization-results h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; color: #2d3748; }
@@ -75,6 +81,24 @@
         .data-preview-table th, .data-preview-table td { border: 1px solid #e2e8f0; padding: 8px 12px; }
         .data-preview-table th { background-color: #e9eef4; font-weight: 600; color: #4a5568; }
         .data-preview-table tfoot td { font-weight: bold; background-color: #e0f2fe; }
+        .ai-analysis-box {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .ai-analysis-box h4 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0c4a6e;
+            margin-bottom: 10px;
+        }
+         .ai-analysis-box p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #374151;
+        }
     </style>
 </head>
 <body>
@@ -149,6 +173,10 @@
             <canvas id="volumeChartCanvas" class="mt-4"></canvas>
             <div id="hoverInfoBox" class="hover-info-box"></div>
             <div id="currentSimulationResults" class="results-box hidden mt-4"></div>
+            <div id="aiAnalysisContainer" class="mt-4 hidden">
+                <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full">✨ Analyze Strategy with AI</button>
+                <div id="aiAnalysisResultBox" class="ai-analysis-box hidden mt-4"></div>
+            </div>
         </div>
 
         <div id="rsiFilteredSimulationSection" class="chart-section mt-6 border-t-4 border-indigo-300 pt-6">
@@ -280,7 +308,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
         optimumHoverInfoBox: document.getElementById('optimumHoverInfoBox'),
-        comprehensiveHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox')
+        comprehensiveHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox'),
+        // AI elements
+        aiAnalysisContainer: document.getElementById('aiAnalysisContainer'),
+        analyzeStrategyBtn: document.getElementById('analyzeStrategyBtn'),
+        aiAnalysisResultBox: document.getElementById('aiAnalysisResultBox'),
     };
 
     // --- Message/UI Helpers ---
@@ -520,7 +552,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ctx.fill();
         }
 
-        drawChartDetails(ctx, width, height, min, max, getX, pricesData);
+        drawChartDetails(ctx, width, height, min, max, getX, pricesData, settings);
 
         const createPoints = (data, yFunc) => data.map((d, i) => d === null ? null : {x: getX(i), y: yFunc(d)});
         drawDataLine(ctx, createPoints(prices, getY), '#3b82f6', 2);
@@ -580,7 +612,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function drawChartDetails(ctx, width, height, min, max, getX, pricesData) {
+    function drawChartDetails(ctx, width, height, min, max, getX, pricesData, settings) {
         ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.5;
         ctx.font = '10px Inter'; ctx.fillStyle = '#6b7280';
 
@@ -603,25 +635,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         let legend = [{c: '#3b82f6', t: 'Price'}, {c: '#ef4444', t: 'Short MA'}, {c: '#10b981', t: 'Long MA'}];
-        if(getSettings().useSLTP) {
+        if(settings.useSLTP) {
              legend.push({c: '#ef4444', t: 'Stop-Loss', dashed: true}, {c: '#22c55e', t: 'Take-Profit', dashed: true});
         }
         ctx.textAlign = 'left';
-        legend.forEach((item, i) => {
+        let legendX = 10;
+        legend.forEach((item) => {
             ctx.fillStyle = item.c;
             ctx.strokeStyle = item.c;
+            
+            const textWidth = ctx.measureText(item.t).width;
+            
             if(item.dashed) {
                 ctx.setLineDash([3,3]);
                 ctx.beginPath();
-                ctx.moveTo(10 + i * 100, 12);
-                ctx.lineTo(25 + i * 100, 12);
+                ctx.moveTo(legendX, 12);
+                ctx.lineTo(legendX + 15, 12);
                 ctx.stroke();
                 ctx.setLineDash([]);
             } else {
-                ctx.fillRect(10 + i * 100, 10, 15, 2);
+                ctx.fillRect(legendX, 10, 15, 2);
             }
             ctx.fillStyle = '#6b7280';
-            ctx.fillText(item.t, 30 + i * 100, 12);
+            ctx.fillText(item.t, legendX + 20, 12);
+            legendX += textWidth + 35;
         });
     }
     
@@ -806,6 +843,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const maxPeriod = Math.max(settings.longPeriod, settings.rsiPeriod, settings.bbPeriod, settings.volumeMAPeriod);
         if (filteredPrices.length < maxPeriod) {
             showResults(elements.currentSimulationResults, `<div class="warning-message">Not enough data. Need ${maxPeriod}, have ${filteredPrices.length}.</div>`);
+            elements.aiAnalysisContainer.classList.add('hidden');
             return;
         }
 
@@ -817,8 +855,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Normal simulation data
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
-        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings };
+        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
+        elements.aiAnalysisContainer.classList.remove('hidden');
+        elements.aiAnalysisResultBox.classList.add('hidden');
+
 
         // RSI-Filtered simulation data
         const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true, useVolumeFilter: true};
@@ -972,11 +1013,89 @@ document.addEventListener('DOMContentLoaded', async () => {
             elements.comprehensiveTradesTableContainer.classList.add('hidden');
         }
     }
+    
+    async function analyzeStrategyWithAI() {
+        if (!currentStrategyData) {
+            alert("Please run a simulation first.");
+            return;
+        }
+
+        const { settings, performance } = currentStrategyData;
+        const resultBox = elements.aiAnalysisResultBox;
+        resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
+        resultBox.classList.remove('hidden');
+
+        const { finalValue, preTaxFinalValue } = currentStrategyData.performance;
+        const netProfit = finalValue - settings.initialInvestment;
+        const numTrades = currentStrategyData.signals.filter(s => s.type === 'sell').length;
+
+        const filtersUsed = [
+            `RSI (${settings.useRsiFilter})`,
+            `Bollinger Bands (${settings.useBBFilter})`,
+            `Volume (${settings.useVolumeFilter})`,
+            `SL/TP (${settings.useSLTP})`
+        ].join(', ');
+
+        const prompt = `You are a helpful trading strategy analyst.
+
+        Based on the following trading strategy parameters and its performance results for Bitcoin (BTC/USD) over a specific historical period, provide a concise analysis.
+
+        **Strategy Parameters:**
+        - Short-term Moving Average: ${settings.shortPeriod} days
+        - Long-term Moving Average: ${settings.longPeriod} days
+        - RSI Period: ${settings.rsiPeriod}
+        - RSI Overbought/Oversold: ${settings.rsiOverbought}/${settings.rsiOversold}
+        - Bollinger Bands Period/Std Dev: ${settings.bbPeriod}/${settings.bbStdDev}
+        - Stop-Loss: ${settings.stopLoss}%
+        - Take-Profit: ${settings.takeProfit}%
+        - Filters Used: ${filtersUsed}
+
+        **Performance Results:**
+        - Initial Investment: $${settings.initialInvestment.toFixed(2)}
+        - Final Net Value: $${finalValue.toFixed(2)}
+        - Net Profit/Loss: $${netProfit.toFixed(2)}
+        - Number of Trades: ${numTrades}
+
+        **Your Task:**
+        Write a brief, easy-to-understand analysis (2-3 paragraphs) in HTML format. Use <p> tags for paragraphs. Cover:
+        1. A summary of the strategy's overall approach (e.g., "This is a trend-following strategy with added momentum and volatility confirmation...").
+        2. An interpretation of its performance. Is the profit/loss significant? Is the number of trades high or low for the period?
+        3. Potential strengths and weaknesses based on the parameters (e.g., "Its strengths might be in capturing strong trends, but the tight stop-loss could lead to being shaken out of positions prematurely...").
+
+        Do not give financial advice. The analysis should be based *only* on the provided data.`;
+
+        try {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                const text = result.candidates[0].content.parts[0].text;
+                resultBox.innerHTML = `<h4>✨ AI Strategy Analysis</h4>${text}`;
+            } else {
+                 resultBox.innerHTML = `<p class="text-red-500">Could not retrieve AI analysis. The response was empty.</p>`;
+            }
+        } catch (error) {
+            console.error("Error calling Gemini API:", error);
+            resultBox.innerHTML = `<p class="text-red-500">An error occurred while analyzing the strategy. Please check the console for details.</p>`;
+        }
+    }
+
 
     function setupEventListeners() {
         elements.runSimulationBtn.addEventListener('click', runSimulation);
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
+        elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
+
         
         const createHoverListener = (container, redrawFn, getHoverBox) => {
              if (!container) return;
