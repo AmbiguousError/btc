@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.5 -->
+    <!-- Version: 12.6 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -631,25 +631,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const inPositionAtEnd = btc > 0;
         let finalValue = inPositionAtEnd ? btc * prices[prices.length - 1].price : cash;
-
-        // If the simulation ends in cash, look for the next potential buy signal to display on the chart
-        if (!inPositionAtEnd) {
-            const lastSignalIndex = signals.length > 0 ? signals[signals.length - 1].index + 1 : 1;
-            for (let i = lastSignalIndex; i < prices.length; i++) {
-                if (shortMA[i-1] && longMA[i-1] && shortMA[i] && longMA[i]) { // Ensure we have data
-                    const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
-                    const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
-                    const bbConditionBuy = !settings.useBBFilter || prices[i].price < bb.middle[i];
-                    const volumeCondition = !settings.useVolumeFilter || prices[i].volume > volumeSMA[i];
-                    
-                    if (goldenCross && rsiCondition && bbConditionBuy && volumeCondition) {
-                        signals.push({ index: i, type: 'potential_buy', price: prices[i].price });
-                        break; // Found the next one, stop searching
-                    }
-                }
-            }
-        }
-
+        
         const totalProfit = finalValue - settings.initialInvestment;
         let finalNetValue = finalValue;
 
@@ -660,7 +642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             finalNetValue = finalValue - fee - tax;
         }
         
-        return { signals, finalValue: finalNetValue, preTaxFinalValue: finalValue };
+        return { signals, finalValue: finalNetValue, preTaxFinalValue: finalValue, inPositionAtEnd: inPositionAtEnd };
     }
 
 
@@ -757,12 +739,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ctx.fillStyle = '#22c55e'; // Solid Green circle for buy
                 ctx.arc(x, y, 5, 0, 2 * Math.PI);
                 ctx.fill();
-            } else if (s.type === 'potential_buy') {
-                ctx.beginPath();
-                ctx.strokeStyle = '#22c55e'; // Green outline for potential buy
-                ctx.lineWidth = 2;
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.stroke();
             } else if (s.type === 'sell') {
                 if (lastBuySignal && settings.useSLTP) {
                     const stopLossLevel = getY(lastBuySignal.price * (1 - settings.stopLoss / 100));
@@ -1241,22 +1217,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!container) return;
         container.classList.add('hidden'); // Hide by default
 
-        const lastSignal = perf.signals[perf.signals.length - 1];
+        if (perf.inPositionAtEnd) {
+            const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop();
+            if (!lastBuySignal) return;
 
-        if (lastSignal && lastSignal.type === 'potential_buy') {
-            const buyPrice = lastSignal.price;
-            // Use the pre-tax/fee value as the basis for the next trade's capital
-            const cashForTrade = perf.preTaxFinalValue; 
-            const btcAmount = cashForTrade / buyPrice;
+            const buyPrice = lastBuySignal.price;
+            const btcAmount = lastBuySignal.btc;
+            const cashInvested = buyPrice * btcAmount;
 
             let scenariosHTML = `
-                <h3>Potential Sell Scenarios</h3>
-                <p class="description-box !mt-2 !mb-3">Based on the current strategy, a buy signal (hollow green circle) was detected at <strong>$${formatNumber(buyPrice)}</strong>. This trade is not included in the performance summary. Below are the conditions that would trigger a sell based on this strategy's rules:</p>
+                <h3>Potential Sell Scenarios for Open Position</h3>
+                <p class="description-box !mt-2 !mb-3">The simulation ended with an open position bought at <strong>$${formatNumber(buyPrice)}</strong>. This final trade is included in the portfolio value but is not yet realized profit/loss. Below are the conditions that would trigger a sell based on the strategy rules:</p>
                 <ul class="list-disc pl-6 space-y-2">`;
             
             if (settings.useSLTP) {
                 const slPrice = buyPrice * (1 - settings.stopLoss / 100);
-                const slGrossProfit = (slPrice * btcAmount) - cashForTrade;
+                const slValue = slPrice * btcAmount;
+                const slGrossProfit = slValue - cashInvested;
                 scenariosHTML += `
                     <li>
                         <strong>Stop-Loss (${settings.stopLoss}%):</strong> Sell if price drops to ~<strong>$${formatNumber(slPrice)}</strong>.
@@ -1264,7 +1241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </li>`;
 
                 const tpPrice = buyPrice * (1 + settings.takeProfit / 100);
-                const tpGrossProfit = (tpPrice * btcAmount) - cashForTrade;
+                const tpValue = tpPrice * btcAmount;
+                const tpGrossProfit = tpValue - cashInvested;
                 scenariosHTML += `
                     <li>
                         <strong>Take-Profit (${settings.takeProfit}%):</strong> Sell if price rises to ~<strong>$${formatNumber(tpPrice)}</strong>.
@@ -1286,7 +1264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (settings.useVolumeFilter) {
                  scenariosHTML += `
                     <li>
-                        <strong>Volume:</strong> The Death Cross signal would also need to be confirmed by a daily volume greater than the <strong>${settings.volumeMAPeriod}-day average volume</strong>.
+                        <strong>Volume:</strong> A Death Cross signal would also need to be confirmed by a daily volume greater than the <strong>${settings.volumeMAPeriod}-day average volume</strong>.
                     </li>`;
             }
 
