@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 10.0 -->
+    <!-- Version: 11.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -104,6 +104,14 @@
             line-height: 1.6;
             color: #374151;
         }
+        .description-box {
+            background-color: #f7fafc;
+            border-left: 4px solid #6366f1;
+            padding: 12px 16px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
     </style>
 </head>
 <body>
@@ -130,18 +138,30 @@
         </div>
         
         <div class="date-range-section grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div class="input-group"><label for="startDate">Start Date:</label><input type="date" id="startDate"></div>
-            <div class="input-group"><label for="endDate">End Date:</label><input type="date" id="endDate"></div>
+             <div>
+                <h3 class="text-xl font-semibold mb-2 text-gray-700">Date Range Selection</h3>
+                <p class="description-box">Select the start and end dates for the historical data you want to analyze. The simulation and optimizations will only use data from within this time period.</p>
+                <div class="input-group"><label for="startDate">Start Date:</label><input type="date" id="startDate"></div>
+            </div>
+            <div>
+                <h3 class="text-xl font-semibold mb-2 text-gray-700">&nbsp;</h3>
+                <p class="description-box">&nbsp;</p>
+                <div class="input-group"><label for="endDate">End Date:</label><input type="date" id="endDate"></div>
+            </div>
         </div>
 
         <div class="border-t border-gray-200 pt-6">
              <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold text-gray-800">Strategy Parameters</h2>
-                <div class="flex gap-2">
-                    <button id="getAISuggestionsBtn" class="btn-primary btn-ai text-sm">✨ Get AI Suggestions</button>
-                    <button id="resetToDefaultsBtn" class="btn-primary btn-secondary text-sm">Reset</button>
-                </div>
+                <button id="resetToDefaultsBtn" class="btn-primary btn-secondary text-sm">Reset</button>
             </div>
+             <p class="description-box">
+                This is the main control panel for your trading strategy. Adjust these values to define how the simulation should run.
+                <br><strong>Initial Investment:</strong> The starting amount in USD.
+                <br><strong>Tax/Service Fee:</strong> Percentages deducted from profits.
+                <br><strong>MA/RSI/BB/Volume Periods:</strong> The number of data points (days) used to calculate these indicators. Shorter periods are more sensitive to recent price changes.
+                <br><strong>Checkboxes:</strong> Enable or disable Stop-Loss/Take-Profit and various indicator filters to see how they affect performance.
+            </p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="input-group"><label for="initialInvestment">Initial Investment ($):</label><input type="number" id="initialInvestment" value="100" min="1"></div>
                 <div class="input-group"><label for="taxRate">Tax Rate (%):</label><input type="number" id="taxRate" value="28" min="0" max="100"></div>
@@ -168,7 +188,8 @@
                     <label for="useVolumeFilter">Use Volume Filter</label>
                 </div>
             </div>
-            <button id="runSimulationBtn" class="btn-primary w-full mt-6">Run Simulation</button>
+             <p class="description-box mt-4"><strong>Run Simulation Button:</strong> Click this to execute a single simulation using the parameters you've set above. The charts below will update to reflect the results of this specific strategy.</p>
+            <button id="runSimulationBtn" class="btn-primary w-full mt-2">Run Simulation</button>
         </div>
 
         <div id="dataPreviewSection" class="results-box hidden">
@@ -178,6 +199,7 @@
         
         <div id="currentSimulationSection" class="chart-section mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Current Strategy Simulation</h2>
+            <p class="description-box">This section visualizes the performance of the strategy defined in the 'Strategy Parameters' section. The main chart shows the BTC price, moving averages, and buy/sell signals. The smaller charts below display the corresponding RSI and Volume data for the same period.</p>
             <div id="loadingSpinner" class="loading-spinner"></div>
             <canvas id="currentChartCanvas"></canvas>
             <canvas id="rsiChartCanvas" class="mt-4"></canvas>
@@ -188,7 +210,7 @@
 
         <div id="rsiFilteredSimulationSection" class="chart-section mt-6 border-t-4 border-indigo-300 pt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Fully-Filtered Strategy Simulation</h2>
-             <p class="text-gray-600 text-center mb-6">This is a copy of the simulation above, but with all filters forcibly enabled.</p>
+             <p class="description-box">This chart provides a direct comparison by running the exact same simulation as above, but with <strong>all filters (RSI, Bollinger Bands, Volume) forcibly enabled</strong>. This helps you quickly assess the impact of adding these confirmation layers to your base MA-crossover strategy.</p>
             <canvas id="rsiFilteredChartCanvas"></canvas>
             <canvas id="rsiFilteredRsiChartCanvas" class="mt-4"></canvas>
             <canvas id="filteredVolumeChartCanvas" class="mt-4"></canvas>
@@ -198,17 +220,20 @@
 
         <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Manual Strategy Optimization</h2>
+            <p class="description-box">Instead of testing one strategy at a time, this tool lets you find the best performing Moving Average combination within a range you define. It will test every short MA period against every long MA period in the ranges below. The filters used for this optimization are based on what is currently selected in the 'Strategy Parameters' section above.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="input-group"><label for="minShortMA">Min Short MA:</label><input type="number" id="minShortMA" value="2"></div>
                 <div class="input-group"><label for="maxShortMA">Max Short MA:</label><input type="number" id="maxShortMA" value="10"></div>
                 <div class="input-group"><label for="minLongMA">Min Long MA:</label><input type="number" id="minLongMA" value="11"></div>
                 <div class="input-group"><label for="maxLongMA">Max Long MA:</label><input type="number" id="maxLongMA" value="30"></div>
             </div>
-            <button id="findOptimumBtn" class="btn-primary w-full mt-6">Find Optimum Strategy</button>
+             <p class="description-box mt-4"><strong>Find Optimum Strategy Button:</strong> Click this to start the optimization process based on the MA ranges you entered. The system will find the most profitable combination and display the results.</p>
+            <button id="findOptimumBtn" class="btn-primary w-full mt-2">Find Optimum Strategy</button>
             <div id="optimizationSpinner" class="loading-spinner"></div>
             <div id="optimizationResults" class="optimization-results hidden mt-4"></div>
             <div id="optimumStrategyChartSection" class="chart-section mt-4 hidden">
                 <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">Optimum Strategy Chart</h3>
+                <p class="description-box">This chart visualizes the performance of the best strategy found during the manual optimization process.</p>
                 <canvas id="optimumChartCanvas"></canvas>
                 <div id="optimumHoverInfoBox" class="hover-info-box"></div>
             </div>
@@ -216,20 +241,24 @@
 
         <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
-            <p class="text-gray-600 text-center mb-6">Tests all Short MA periods from 2-30 against all longer MA periods up to 100.</p>
-            <button id="findComprehensiveOptimumBtn" class="btn-primary w-full">Find Comprehensive Optimum Strategy</button>
+            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-30) against all longer MA periods (up to 100). Crucially, it also tests <strong>all 16 possible combinations of the filters</strong> (SL/TP, RSI, BB, Volume) to find the absolute best-performing strategy configuration across the selected date range.</p>
+            <p class="description-box mt-4"><strong>Find Comprehensive Optimum Strategy Button:</strong> Click to begin the intensive search. This may take a few moments. The results will include the best parameters, filter settings, performance metrics, and a detailed trade log.</p>
+            <button id="findComprehensiveOptimumBtn" class="btn-primary w-full mt-2">Find Comprehensive Optimum Strategy</button>
             <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
             <div id="comprehensiveOptimizationResults" class="optimization-results hidden mt-4"></div>
             <div id="comprehensiveOptimumStrategyChartSection" class="chart-section mt-4 hidden">
                  <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">Comprehensive Optimum Strategy Chart</h3>
+                <p class="description-box">This chart visualizes the single best strategy found by the comprehensive optimization. Below, you can get an AI analysis of this strategy and see a detailed log of every trade it made.</p>
                 <canvas id="comprehensiveOptimumChartCanvas"></canvas>
                 <div id="comprehensiveOptimumHoverInfoBox" class="hover-info-box"></div>
                  <div id="aiAnalysisContainer" class="mt-4 hidden">
-                    <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full">✨ Analyze Optimum Strategy with AI</button>
+                     <p class="description-box"><strong>Analyze Optimum Strategy with AI Button:</strong> After finding the comprehensive optimum strategy, click this button to send the results to a generative AI. It will provide a qualitative analysis of the strategy's characteristics, potential strengths, and weaknesses based on its performance.</p>
+                    <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full mt-2">✨ Analyze Optimum Strategy with AI</button>
                     <div id="aiAnalysisResultBox" class="ai-analysis-box hidden mt-4"></div>
                 </div>
                 <div id="comprehensiveTradesTableContainer" class="mt-4 hidden">
                     <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Log:</h4>
+                    <p class="description-box">This table shows a detailed record of every buy and sell transaction executed by the optimal strategy.</p>
                     <div class="overflow-x-auto">
                         <table class="data-preview-table w-full">
                             <thead>
@@ -295,7 +324,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxLongMA: document.getElementById('maxLongMA'),
         // Buttons
         runSimulationBtn: document.getElementById('runSimulationBtn'),
-        getAISuggestionsBtn: document.getElementById('getAISuggestionsBtn'),
         resetToDefaultsBtn: document.getElementById('resetToDefaultsBtn'),
         findOptimumBtn: document.getElementById('findOptimumBtn'),
         findComprehensiveOptimumBtn: document.getElementById('findComprehensiveOptimumBtn'),
@@ -1109,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
+            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key will be handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -1141,106 +1169,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         runSimulation();
     }
-    
-    async function getAISuggestions() {
-        const btn = elements.getAISuggestionsBtn;
-        btn.innerHTML = '<div class="loading-spinner" style="display: inline-block; border-top-color: white;"></div>';
-        btn.disabled = true;
-        
-        const recentData = filteredPrices.slice(-30);
-        let context = "Suggest a set of parameters for a BTC/USD trading strategy.";
-        if(recentData.length > 1) {
-            const startPrice = recentData[0].price;
-            const endPrice = recentData[recentData.length - 1].price;
-            const trend = endPrice > startPrice ? 'uptrend' : 'downtrend';
-            context += ` The market has been in a general ${trend} over the last 30 days, moving from approximately $${Math.round(startPrice)} to $${Math.round(endPrice)}.`;
-        }
-         context += " Provide a balanced strategy. The short MA must be less than the long MA.";
-
-
-        const schema = {
-            type: "OBJECT",
-            properties: {
-                "shortMA": { "type": "INTEGER" },
-                "longMA": { "type": "INTEGER" },
-                "rsiPeriod": { "type": "INTEGER" },
-                "rsiOverbought": { "type": "INTEGER" },
-                "rsiOversold": { "type": "INTEGER" },
-                "bbPeriod": { "type": "INTEGER" },
-                "bbStdDev": { "type": "NUMBER" },
-                "volumeMAPeriod": { "type": "INTEGER" },
-                "stopLoss": { "type": "NUMBER" },
-                "takeProfit": { "type": "NUMBER" },
-                "useSLTP": { "type": "BOOLEAN" },
-                "useRsiFilter": { "type": "BOOLEAN" },
-                "useBBFilter": { "type": "BOOLEAN" },
-                "useVolumeFilter": { "type": "BOOLEAN" }
-            }
-        };
-
-        const prompt = context;
-        
-        try {
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { 
-                contents: chatHistory,
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: schema
-                }
-            };
-            const apiKey = "";
-            const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-            const apiUrl = apiKey ? `${baseUrl}?key=${apiKey}` : baseUrl;
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                let jsonText = result.candidates[0].content.parts[0].text;
-                jsonText = jsonText.replace(/```json|```/g, '').trim();
-                const suggestions = JSON.parse(jsonText);
-                Object.keys(suggestions).forEach(key => {
-                    if(elements[key]){
-                        if(elements[key].type === 'checkbox'){
-                            elements[key].checked = suggestions[key];
-                        } else {
-                            elements[key].value = suggestions[key];
-                        }
-                    }
-                });
-                runSimulation();
-            } else {
-                console.error("AI suggestions response was empty or malformed:", result);
-                alert("Could not get AI suggestions. The model returned an empty response.");
-            }
-        } catch (error) {
-            console.error("Error calling Gemini API for suggestions:", error);
-            alert(`An error occurred while getting AI suggestions: ${error.message}`);
-        } finally {
-            btn.innerHTML = '✨ Get AI Suggestions';
-            btn.disabled = false;
-        }
-    }
-
 
     function setupEventListeners() {
         elements.runSimulationBtn.addEventListener('click', runSimulation);
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
-        elements.getAISuggestionsBtn.addEventListener('click', getAISuggestions);
         elements.resetToDefaultsBtn.addEventListener('click', setDefaults);
 
         
