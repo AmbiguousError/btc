@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 6.0 -->
+    <!-- Version: 7.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -442,7 +442,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if(sellReason){
                     cash = btc * price;
                     btc = 0;
-                    const grossProfit = cash - entryPrice * (signals.filter(s => s.type === 'buy').pop().btc);
+                    const buySignal = signals.filter(s => s.type === 'buy').pop();
+                    const grossProfit = cash - (buySignal.btc * buySignal.price);
                     signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason });
                 }
 
@@ -488,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { ctx, width: rect.width, height: rect.height };
     }
 
-    function drawChart(canvas, pricesData, shortMA, longMA, bb, signals, hoverInfo) {
+    function drawChart(canvas, pricesData, shortMA, longMA, bb, signals, settings, hoverInfo) {
         const { ctx, width, height } = setupCanvas(canvas);
         ctx.clearRect(0, 0, width, height);
 
@@ -530,23 +531,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         drawDataLine(ctx, createPoints(bb.upper, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
         drawDataLine(ctx, createPoints(bb.lower, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
         
+        let lastBuySignal = null;
         signals.forEach(s => {
             const x = getX(s.index), y = getY(s.price);
             ctx.beginPath();
             
             if (s.type === 'buy') {
+                lastBuySignal = s;
                 ctx.fillStyle = '#22c55e'; // Green circle for buy
                 ctx.arc(x, y, 5, 0, 2 * Math.PI);
             } else { // Sell signals
-                 if (s.reason === 'stop_loss') {
+                if(lastBuySignal && settings.useSLTP){
+                    const stopLossLevel = getY(lastBuySignal.price * (1 - settings.stopLoss / 100));
+                    const takeProfitLevel = getY(lastBuySignal.price * (1 + settings.takeProfit / 100));
+                    drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: stopLossLevel}, {x: x, y: stopLossLevel}], '#ef4444', 1, true);
+                    drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: takeProfitLevel}, {x: x, y: takeProfitLevel}], '#22c55e', 1, true);
+                    lastBuySignal = null;
+                }
+
+                if (s.reason === 'stop_loss') {
                     ctx.fillStyle = '#ef4444'; // Red
-                    ctx.moveTo(x, y + 6); ctx.lineTo(x-6, y-3); ctx.lineTo(x+6, y-3); ctx.closePath(); // Down triangle
+                    ctx.moveTo(x, y + 6); ctx.lineTo(x-6, y-3); ctx.lineTo(x+6, y-3); ctx.closePath();
                 } else if (s.reason === 'take_profit') {
                     ctx.fillStyle = '#22c55e'; // Green
-                    ctx.moveTo(x, y - 6); ctx.lineTo(x-6, y+3); ctx.lineTo(x+6, y+3); ctx.closePath(); // Up triangle
+                    ctx.moveTo(x, y - 6); ctx.lineTo(x-6, y+3); ctx.lineTo(x+6, y+3); ctx.closePath();
                 } else { // death_cross
                     ctx.fillStyle = '#ef4444'; // Red
-                    ctx.rect(x-4, y-4, 8, 8); // Square
+                    ctx.rect(x-4, y-4, 8, 8);
                 }
             }
             ctx.fill();
@@ -591,13 +602,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        const legend = [{c: '#3b82f6', t: 'Price'}, {c: '#ef4444', t: 'Short MA'}, {c: '#10b981', t: 'Long MA'}];
+        let legend = [{c: '#3b82f6', t: 'Price'}, {c: '#ef4444', t: 'Short MA'}, {c: '#10b981', t: 'Long MA'}];
+        if(getSettings().useSLTP) {
+             legend.push({c: '#ef4444', t: 'Stop-Loss', dashed: true}, {c: '#22c55e', t: 'Take-Profit', dashed: true});
+        }
         ctx.textAlign = 'left';
         legend.forEach((item, i) => {
             ctx.fillStyle = item.c;
-            ctx.fillRect(10 + i * 90, 10, 15, 2);
+            ctx.strokeStyle = item.c;
+            if(item.dashed) {
+                ctx.setLineDash([3,3]);
+                ctx.beginPath();
+                ctx.moveTo(10 + i * 100, 12);
+                ctx.lineTo(25 + i * 100, 12);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                ctx.fillRect(10 + i * 100, 10, 15, 2);
+            }
             ctx.fillStyle = '#6b7280';
-            ctx.fillText(item.t, 30 + i * 90, 12);
+            ctx.fillText(item.t, 30 + i * 100, 12);
         });
     }
     
@@ -684,6 +708,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
         ctx.stroke();
+        ctx.setLineDash([]);
     }
     
     function drawCrosshair(ctx, x, y, width, height) {
@@ -754,7 +779,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function drawCurrentCharts(hoverInfo) {
         if (!currentStrategyData) return;
         const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = currentStrategyData;
-        drawChart(elements.currentChartCanvas, prices, shortMA, longMA, bb, signals, hoverInfo);
+        drawChart(elements.currentChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo);
         
         const { ctx, width, height } = setupCanvas(elements.rsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
@@ -765,7 +790,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function drawRsiFilteredCharts(hoverInfo) {
         if (!rsiFilteredStrategyData) return;
         const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = rsiFilteredStrategyData;
-        drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, bb, signals, hoverInfo);
+        drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo);
         
         const { ctx, width, height } = setupCanvas(elements.rsiFilteredRsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
@@ -880,14 +905,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             chartSection.classList.remove('hidden');
             const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
             const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
+            const optimumSettings = {...settings, shortPeriod: bestShort, longPeriod: bestLong};
 
             if(isComprehensive){
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
-                drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals);
+                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings};
+                drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTradesTable(bestPerf, settings);
             } else {
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
-                drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals);
+                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings};
+                drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings);
             }
 
             elements.shortMA.value = bestShort;
@@ -970,12 +996,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         createHoverListener(elements.optimumStrategyChartSection, (hover) => {
             if(!optimumStrategyData) return;
-            drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, hover);
+            const {prices, shortMA, longMA, bb, signals, settings} = optimumStrategyData;
+            drawChart(elements.optimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover);
         }, () => elements.optimumHoverInfoBox);
 
         createHoverListener(elements.comprehensiveOptimumStrategyChartSection, (hover) => {
              if(!comprehensiveStrategyData) return;
-            drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, hover);
+            const {prices, shortMA, longMA, bb, signals, settings} = comprehensiveStrategyData;
+            drawChart(elements.comprehensiveOptimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover);
         }, () => elements.comprehensiveHoverInfoBox);
     }
 
