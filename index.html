@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.2 -->
+    <!-- Version: 12.3 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -286,6 +286,7 @@
                     </div>
                 </div>
                  <div id="comprehensiveTradesSummaryContainer" class="results-box mt-4 hidden"></div>
+                 <div id="potentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
             </div>
         </div>
 
@@ -428,6 +429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
         comprehensiveTradesTableBody: document.getElementById('comprehensiveTradesTableBody'),
         comprehensiveTradesSummaryContainer: document.getElementById('comprehensiveTradesSummaryContainer'),
+        potentialSellScenariosContainer: document.getElementById('potentialSellScenariosContainer'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
@@ -1064,6 +1066,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
         elements.aiAnalysisContainer.classList.add('hidden');
         elements.aiAnalysisResultBox.classList.add('hidden');
+        elements.potentialSellScenariosContainer.classList.add('hidden');
 
 
         setTimeout(() => {
@@ -1159,6 +1162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTradesTable(bestPerf, bestSettings);
+                renderPotentialSellScenarios(bestPerf, bestSettings);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
@@ -1223,6 +1227,64 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
             `;
             showResults(elements.comprehensiveTradesSummaryContainer, summaryHTML);
+        }
+    }
+
+    function renderPotentialSellScenarios(perf, settings) {
+        const container = elements.potentialSellScenariosContainer;
+        container.classList.add('hidden'); // Hide by default
+
+        const lastSignal = perf.signals[perf.signals.length - 1];
+
+        if (lastSignal && lastSignal.type === 'potential_buy') {
+            const buyPrice = lastSignal.price;
+            // Use the pre-tax/fee value as the basis for the next trade's capital
+            const cashForTrade = perf.preTaxFinalValue; 
+            const btcAmount = cashForTrade / buyPrice;
+
+            let scenariosHTML = `
+                <h3>Potential Sell Scenarios</h3>
+                <p class="description-box !mt-2 !mb-3">Based on the optimal strategy, a buy signal (hollow green circle) was detected at the end of the data range at <strong>$${formatNumber(buyPrice)}</strong>. This trade is not included in the performance summary. Below are the conditions that would trigger a sell based on this strategy's rules:</p>
+                <ul class="list-disc pl-6 space-y-2">`;
+            
+            if (settings.useSLTP) {
+                const slPrice = buyPrice * (1 - settings.stopLoss / 100);
+                const slGrossProfit = (slPrice * btcAmount) - cashForTrade;
+                scenariosHTML += `
+                    <li>
+                        <strong>Stop-Loss (${settings.stopLoss}%):</strong> Sell if price drops to ~<strong>$${formatNumber(slPrice)}</strong>.
+                        <br>Approx. Gross P/L: <span class="font-bold ${slGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(slGrossProfit)}</span>
+                    </li>`;
+
+                const tpPrice = buyPrice * (1 + settings.takeProfit / 100);
+                const tpGrossProfit = (tpPrice * btcAmount) - cashForTrade;
+                scenariosHTML += `
+                    <li>
+                        <strong>Take-Profit (${settings.takeProfit}%):</strong> Sell if price rises to ~<strong>$${formatNumber(tpPrice)}</strong>.
+                        <br>Approx. Gross P/L: <span class="font-bold ${tpGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(tpGrossProfit)}</span>
+                    </li>`;
+            }
+
+            scenariosHTML += `
+                <li>
+                    <strong>Death Cross:</strong> Sell if the <strong>${settings.shortPeriod}-day MA</strong> crosses below the <strong>${settings.longPeriod}-day MA</strong>. The exact price depends on future market movement.
+                </li>`;
+
+            if (settings.useBBFilter) {
+                 scenariosHTML += `
+                    <li>
+                        <strong>Bollinger Band:</strong> Sell if the price moves above the middle band (the <strong>${settings.bbPeriod}-day MA</strong>).
+                    </li>`;
+            }
+            if (settings.useVolumeFilter) {
+                 scenariosHTML += `
+                    <li>
+                        <strong>Volume:</strong> The Death Cross signal would also need to be confirmed by a daily volume greater than the <strong>${settings.volumeMAPeriod}-day average volume</strong>.
+                    </li>`;
+            }
+
+            scenariosHTML += '</ul>';
+            showResults(container, scenariosHTML);
         }
     }
     
