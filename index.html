@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 5.0 -->
+    <!-- Version: 6.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC/USD Trading Opportunity Identifier with Volume</title>
+    <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -86,10 +86,18 @@
 
         <div class="explanation-box">
             <h3>How Signals Are Calculated</h3>
-            <p><strong>1. Moving Average (MA) Crossover Strategy:</strong> The core signals are generated when a short-term MA crosses a long-term MA.</p>
-            <p class="mt-4"><strong>2. Optional RSI Filter:</strong> The RSI (0-100) measures momentum. If enabled, it filters MA signals based on overbought/oversold conditions.</p>
-             <p class="mt-4"><strong>3. Optional Bollinger Bands (BB) Filter:</strong> The BBs measure volatility. If enabled, they filter signals based on price relative to the middle band.</p>
-             <p class="mt-4"><strong>4. Optional Volume Filter:</strong> If enabled, a signal is only valid if the trading volume is above its recent average, suggesting stronger conviction.</p>
+            <p>This model combines multiple technical indicators and risk management rules to generate buy and sell signals.</p>
+            <ul>
+                <li class="mt-2"><strong>1. Moving Average (MA) Crossover:</strong> The core signal. A "Golden Cross" (short MA over long MA) is a buy signal, while a "Death Cross" is a sell signal.</li>
+                <li class="mt-2"><strong>2. Stop-Loss & Take-Profit:</strong> If enabled, a position will be automatically sold if the price drops by the Stop-Loss % or rises by the Take-Profit % from the entry price. This overrides all other signals.</li>
+                <li class="mt-2"><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals:
+                    <ul class="list-disc pl-6 mt-1">
+                        <li><strong>RSI Filter:</strong> A buy requires RSI to be below the overbought level; a sell requires it to be above the oversold level.</li>
+                        <li><strong>Bollinger Bands (BB) Filter:</strong> A buy requires the price to be below the middle BB line; a sell requires it to be above.</li>
+                        <li><strong>Volume Filter:</strong> A signal requires the volume to be above its recent moving average.</li>
+                    </ul>
+                </li>
+            </ul>
         </div>
         
         <div class="date-range-section grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -110,8 +118,13 @@
                 <div class="input-group"><label for="rsiOversold">RSI Oversold:</label><input type="number" id="rsiOversold" value="30" max="49"></div>
                 <div class="input-group"><label for="bbPeriod">BB Period:</label><input type="number" id="bbPeriod" value="20" min="2"></div>
                 <div class="input-group"><label for="bbStdDev">BB Std Dev:</label><input type="number" id="bbStdDev" value="2" min="1" step="0.1"></div>
-                 <div class="input-group"><label for="volumeMAPeriod">Volume MA Period:</label><input type="number" id="volumeMAPeriod" value="20" min="2"></div>
+                <div class="input-group"><label for="volumeMAPeriod">Volume MA Period:</label><input type="number" id="volumeMAPeriod" value="20" min="2"></div>
+                <div class="input-group"><label for="stopLoss">Stop-Loss (%):</label><input type="number" id="stopLoss" value="5" min="0.1" step="0.1"></div>
+                <div class="input-group"><label for="takeProfit">Take-Profit (%):</label><input type="number" id="takeProfit" value="15" min="0.1" step="0.1"></div>
+
                 <div class="checkbox-group mt-4 col-span-2 md:col-span-4 flex-wrap">
+                    <input type="checkbox" id="useSLTP" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <label for="useSLTP" class="mr-4">Use SL/TP</label>
                     <input type="checkbox" id="useRsiFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useRsiFilter" class="mr-4">Use RSI Filter</label>
                      <input type="checkbox" id="useBBFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
@@ -234,6 +247,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         useBBFilter: document.getElementById('useBBFilter'),
         volumeMAPeriod: document.getElementById('volumeMAPeriod'),
         useVolumeFilter: document.getElementById('useVolumeFilter'),
+        stopLoss: document.getElementById('stopLoss'),
+        takeProfit: document.getElementById('takeProfit'),
+        useSLTP: document.getElementById('useSLTP'),
         minShortMA: document.getElementById('minShortMA'),
         maxShortMA: document.getElementById('maxShortMA'),
         minLongMA: document.getElementById('minLongMA'),
@@ -297,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const closePriceIndex = headers.indexOf('price');
         const dateIndex = headers.indexOf('snapped_at');
-        const volumeIndex = headers.indexOf('total_volume'); // Assuming this is the volume column name
+        const volumeIndex = headers.indexOf('total_volume');
         if (closePriceIndex === -1 || dateIndex === -1) throw new Error('CSV missing "price" or "snapped_at" column.');
         if(volumeIndex === -1) console.warn("Volume data not found in CSV. Volume filter will be disabled.");
 
@@ -398,31 +414,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         let cash = settings.initialInvestment;
         let btc = 0;
         let signals = [];
+        let entryPrice = 0;
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
             const volume = prices[i].volume;
-            const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
-            const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
-
-            const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
-            const bbConditionBuy = !settings.useBBFilter || price < bb.middle[i];
-            const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
             
-            if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
-                btc = cash / price;
-                cash = 0;
-                signals.push({ index: i, type: 'buy', price, btc });
-            } else if (deathCross && btc > 0) {
-                 const bbConditionSell = !settings.useBBFilter || price > bb.middle[i];
-                 if(bbConditionSell && volumeCondition) {
+            if (btc > 0) { // In a position, check for sell conditions
+                let sellReason = null;
+                const stopLossPrice = entryPrice * (1 - settings.stopLoss / 100);
+                const takeProfitPrice = entryPrice * (1 + settings.takeProfit / 100);
+
+                if (settings.useSLTP) {
+                    if (price <= stopLossPrice) sellReason = 'stop_loss';
+                    else if (price >= takeProfitPrice) sellReason = 'take_profit';
+                }
+
+                if (!sellReason) { // If not triggered by SL/TP, check indicator signals
+                    const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
+                    const bbConditionSell = !settings.useBBFilter || price > bb.middle[i];
+                    const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
+                    if(deathCross && bbConditionSell && volumeCondition) {
+                        sellReason = 'death_cross';
+                    }
+                }
+
+                if(sellReason){
                     cash = btc * price;
                     btc = 0;
-                    
-                    const buySignal = signals.filter(s => s.type === 'buy').pop();
-                    const grossProfit = cash - (buySignal.btc * buySignal.price);
-                    signals.push({ index: i, type: 'sell', price, grossProfit });
-                 }
+                    const grossProfit = cash - entryPrice * (signals.filter(s => s.type === 'buy').pop().btc);
+                    signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason });
+                }
+
+            } else { // Not in a position, check for buy conditions
+                const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
+                const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
+                const bbConditionBuy = !settings.useBBFilter || price < bb.middle[i];
+                const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
+                
+                if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
+                    btc = cash / price;
+                    entryPrice = price;
+                    signals.push({ index: i, type: 'buy', price, btc });
+                    cash = 0;
+                }
             }
         }
         
@@ -498,8 +533,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         signals.forEach(s => {
             const x = getX(s.index), y = getY(s.price);
             ctx.beginPath();
-            ctx.fillStyle = s.type === 'buy' ? '#22c55e' : '#ef4444';
-            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            
+            if (s.type === 'buy') {
+                ctx.fillStyle = '#22c55e'; // Green circle for buy
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            } else { // Sell signals
+                 if (s.reason === 'stop_loss') {
+                    ctx.fillStyle = '#ef4444'; // Red
+                    ctx.moveTo(x, y + 6); ctx.lineTo(x-6, y-3); ctx.lineTo(x+6, y-3); ctx.closePath(); // Down triangle
+                } else if (s.reason === 'take_profit') {
+                    ctx.fillStyle = '#22c55e'; // Green
+                    ctx.moveTo(x, y - 6); ctx.lineTo(x-6, y+3); ctx.lineTo(x+6, y+3); ctx.closePath(); // Up triangle
+                } else { // death_cross
+                    ctx.fillStyle = '#ef4444'; // Red
+                    ctx.rect(x-4, y-4, 8, 8); // Square
+                }
+            }
             ctx.fill();
         });
 
@@ -673,6 +722,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             useBBFilter: elements.useBBFilter.checked,
             volumeMAPeriod: parseInt(elements.volumeMAPeriod.value),
             useVolumeFilter: elements.useVolumeFilter.checked,
+            stopLoss: parseFloat(elements.stopLoss.value),
+            takeProfit: parseFloat(elements.takeProfit.value),
+            useSLTP: elements.useSLTP.checked,
             startDate: elements.startDate.value,
             endDate: elements.endDate.value,
         };
@@ -945,4 +997,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 </script>
 </body>
-</ht
+</html>
