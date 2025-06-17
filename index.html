@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.2 -->
+    <!-- Version: 2.3 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -292,12 +292,12 @@
         <p id="latestDataInfo" class="data-info hidden"></p>
 
         <div id="dataPreviewSection" class="results-box hidden">
-            <h3>Data Preview for Selected Range:</h3> <!-- Updated title -->
+            <h3>Data Preview for Selected Range:</h3>
             <table class="data-preview-table">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Close Price (USD)</th> <!-- Updated currency unit -->
+                        <th>Close Price (USD)</th>
                     </tr>
                 </thead>
                 <tbody id="dataPreviewTableBody">
@@ -465,13 +465,13 @@
             let filteredPrices = []; // Data subset used for current simulation/optimization (based on date range)
 
             // These are now initialized once in the outer scope
-            let bestOptimumShortMA = 0;
-            let bestOptimumLongMA = 0;
-            let bestOptimumPerformance = null;
+            let bestOptimumShortMA; // Removed = 0 to prevent implicit redeclaration
+            let bestOptimumLongMA;  // Removed = 0 to prevent implicit redeclaration
+            let bestOptimumPerformance; // Removed = null to prevent implicit redeclaration
 
-            let bestComprehensiveShortMA = 0;
-            let bestComprehensiveLongMA = 0;
-            let bestComprehensivePerformance = null;
+            let bestComprehensiveShortMA; // Removed = 0 to prevent implicit redeclaration
+            let bestComprehensiveLongMA;  // Removed = 0 to prevent implicit redeclaration
+            let bestComprehensivePerformance; // Removed = null to prevent implicit redeclaration
 
 
             // Set canvas dimensions
@@ -852,7 +852,7 @@
                 // Y-axis labels
                 const numYLabels = 5;
                 for (let i = 0; i <= numYLabels; i++) {
-                    const priceLabel = minChartPrice + (chartPriceRange / numYLabels * i); // Use current chart's price range
+                    const priceLabel = minChartPrice + (chartPriceRange / numYLabels * i);
                     const yPos = getY(priceLabel);
                     ctx.fillText(`$${priceLabel.toFixed(2)}`, canvasWidth - 10, yPos);
                 }
@@ -988,13 +988,13 @@
                 drawChart(currentCtx, filteredPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
             }
 
-            let bestOptimumShortMA = 0;
-            let bestOptimumLongMA = 0;
-            let bestOptimumPerformance = null;
+            let bestOptimumShortMA; // Declared once
+            let bestOptimumLongMA;  // Declared once
+            let bestOptimumPerformance; // Declared once
 
-            let bestComprehensiveShortMA = 0;
-            let bestComprehensiveLongMA = 0;
-            let bestComprehensivePerformance = null;
+            let bestComprehensiveShortMA; // Declared once
+            let bestComprehensiveLongMA;  // Declared once
+            let bestComprehensivePerformance; // Declared once
 
             // --- Manual Optimization Logic ---
             async function findOptimumStrategy() {
@@ -1042,7 +1042,7 @@
                 optimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for optimum strategy...', 'info', optimizationMessageBox);
 
-                let bestProfit = -Infinity; // Local declaration is correct
+                let currentBestProfit = -Infinity; // Renamed to avoid conflict
                 bestShortMA = 0;
                 bestLongMA = 0;
                 bestOptimumPerformance = null;
@@ -1059,8 +1059,8 @@
 
                         const currentPerformance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (currentPerformance.totalProfitLoss > bestProfit) {
-                            bestProfit = currentPerformance.totalProfitLoss;
+                        if (currentPerformance.totalProfitLoss > currentBestProfit) {
+                            currentBestProfit = currentPerformance.totalProfitLoss;
                             bestShortMA = shortPeriod;
                             bestLongMA = longPeriod;
                             bestOptimumPerformance = currentPerformance;
@@ -1073,8 +1073,8 @@
 
                 optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestShortMA}`;
                 optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestLongMA}`;
-                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
-                optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
+                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit.toFixed(2)} USD`;
+                optimumProfitSpan.style.color = currentBestProfit >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestOptimumPerformance) {
                     optimumTotalTradesSpan.textContent = `Total completed trades: ${bestOptimumPerformance.tradesCount}`;
@@ -1086,9 +1086,9 @@
                     optimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount > 0) {
+                if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount > 0) { // bestProfit should be currentBestProfit here
                      showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', optimizationMessageBox);
-                } else if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount === 0) {
+                } else if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount === 0) { // bestProfit should be currentBestProfit here
                      showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
                 }
                 else {
@@ -1133,7 +1133,7 @@
                 // Automatically determine sensible ranges
                 const autoMinShort = 2;
                 const autoMaxShort = Math.min(30, Math.floor(filteredPrices.length / 5));
-                const autoMinLong = 3;
+                const autoMinLong = autoMaxShort + 1; // Long MA must be greater than Short MA
                 const autoMaxLong = Math.min(100, filteredPrices.length - 1);
 
 
@@ -1147,7 +1147,7 @@
                 comprehensiveOptimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for comprehensive optimum strategy (this may take a moment)...', 'info', comprehensiveOptimizationMessageBox);
 
-                let bestProfit = -Infinity; // Local declaration is correct
+                let currentBestProfit = -Infinity; // Renamed to avoid conflict
                 bestComprehensiveShortMA = 0;
                 bestComprehensiveLongMA = 0;
                 bestComprehensivePerformance = null;
@@ -1163,8 +1163,8 @@
 
                         const currentPerformance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (currentPerformance.totalProfitLoss > bestProfit) {
-                            bestProfit = currentPerformance.totalProfitLoss;
+                        if (currentPerformance.totalProfitLoss > currentBestProfit) {
+                            currentBestProfit = currentPerformance.totalProfitLoss;
                             bestComprehensiveShortMA = shortPeriod;
                             bestComprehensiveLongMA = longPeriod;
                             bestComprehensivePerformance = currentPerformance;
@@ -1177,8 +1177,8 @@
 
                 compOptimumShortMASpan.textContent = `Optimum Short MA Period: ${bestComprehensiveShortMA}`;
                 compOptimumLongMASpan.textContent = `Optimum Long MA Period: ${bestComprehensiveLongMA}`;
-                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
-                compOptimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
+                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit.toFixed(2)} USD`;
+                compOptimumProfitSpan.style.color = currentBestProfit >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestComprehensivePerformance) {
                     compOptimumTotalTradesSpan.textContent = `Total completed trades: ${bestComprehensivePerformance.tradesCount}`;
@@ -1190,9 +1190,9 @@
                     compOptimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (bestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount > 0) {
+                if (currentBestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount > 0) {
                      showMessageBox(`Comprehensive optimization complete. While trades were made, no net positive profit strategy was found. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', comprehensiveOptimizationMessageBox);
-                } else if (bestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount === 0) {
+                } else if (currentBestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount === 0) {
                      showMessageBox(`Comprehensive optimization complete. No trades were made with any strategy. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', comprehensiveOptimizationMessageBox);
                 }
                 else {
@@ -1246,12 +1246,9 @@
                 }
 
                 // Show last 5 rows (most recent)
-                if (numRowsToShow > 5 || (numRowsToShow <=5 && dataToDisplay.length > numRowsToShow)) { // Only show last 5 if there's enough data to distinguish, or if total is small
-                    const startLastFive = Math.max(0, dataToDisplay.length - 5);
+                if (numRowsToShow > 5 || (numRowsToShow <=5 && dataToDisplay.length > 5)) { // Changed condition for showing last 5
+                    const startLastFive = Math.max(dataToDisplay.length - 5, Math.min(numRowsToShow, 5)); // Ensure no overlap
                     for (let i = startLastFive; i < dataToDisplay.length; i++) {
-                         // Avoid re-adding if already shown in first 5 and total is <= 10
-                        if (dataToDisplay.length <= 10 && i < 5) continue; 
-
                         const rowData = dataToDisplay[i];
                         const row = dataPreviewTableBody.insertRow();
                         const dateCell = row.insertCell();
