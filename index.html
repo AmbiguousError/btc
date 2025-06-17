@@ -482,7 +482,7 @@
                 const rawHeaders = lines[0].split(';');
                 const headers = rawHeaders.map(h => h.trim().replace(/"/g, ''));
 
-                // Updated to match the new CSV header "Close"
+                // Corrected to match the new CSV header "Close"
                 const closePriceIndex = headers.indexOf('Close'); 
                 const dateIndex = headers.indexOf('Date');
 
