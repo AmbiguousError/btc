@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.9 -->
+    <!-- Version: 2.10 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -35,7 +35,7 @@
             border-radius: 8px;
             background-color: #fdfdfd;
             width: 100%; /* Make canvas responsive */
-            height: 400px; /* Fixed height for charting */
+            height: 600px; /* Increased Fixed height for charting for better readability */
         }
         .input-group {
             display: flex;
@@ -370,7 +370,8 @@
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization Tool</h2>
             <p class="text-gray-600 text-center mb-6">
                 This tool automatically iterates through a wide range of sensible Short and Long Moving Average periods
-                to find the combination that would have maximized profit over the currently selected historical data range.
+                to find the combination that would have maximized profit
+                over the currently selected historical data range.
                 (Note: This might take a moment for very large datasets).
             </p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary">Find Comprehensive Optimum Strategy</button>
@@ -475,7 +476,7 @@
 
 
             // Set canvas dimensions
-            const CHART_HEIGHT = 400;
+            const CHART_HEIGHT = 600; // Increased height
             let currentChartWidth = currentChartCanvas.offsetWidth;
             currentChartCanvas.height = CHART_HEIGHT;
             currentChartCanvas.width = currentChartWidth;
