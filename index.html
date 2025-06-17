@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.4 -->
+    <!-- Version: 2.5 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -988,14 +988,6 @@
                 drawChart(currentCtx, filteredPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
             }
 
-            let bestOptimumShortMA; // Declared once at this scope
-            let bestOptimumLongMA;  // Declared once at this scope
-            let bestOptimumPerformance; // Declared once at this scope
-
-            let bestComprehensiveShortMA; // Declared once at this scope
-            let bestComprehensiveLongMA;  // Declared once at this scope
-            let bestComprehensivePerformance; // Declared once at this scope
-
             // --- Manual Optimization Logic ---
             async function findOptimumStrategy() {
                 hideMessageBox(optimizationMessageBox);
@@ -1042,7 +1034,7 @@
                 optimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for optimum strategy...', 'info', optimizationMessageBox);
 
-                let bestProfit = -Infinity; // Local variable for the best profit in this run
+                let currentBestProfit = -Infinity; // Local variable for the best profit in this run
                 let currentBestShortMA = 0; // Local variable to store best short MA in this run
                 let currentBestLongMA = 0; // Local variable to store best long MA in this run
                 let currentBestPerformance = null; // Local variable to store best performance in this run
@@ -1059,11 +1051,11 @@
 
                         const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > bestProfit) {
-                            bestProfit = performance.totalProfitLoss;
-                            currentBestShortMA = shortPeriod; // Assign to local variable
-                            currentBestLongMA = longPeriod;   // Assign to local variable
-                            currentBestPerformance = performance; // Assign to local variable
+                        if (performance.totalProfitLoss > bestProfit) { // Compare with outer bestProfit
+                            bestProfit = performance.totalProfitLoss; // Assign to outer bestProfit
+                            currentBestShortMA = shortPeriod;
+                            currentBestLongMA = longPeriod;
+                            currentBestPerformance = performance;
                         }
                     }
                 }
@@ -1071,7 +1063,7 @@
                 optimizationSpinner.style.display = 'none';
                 optimizationResultsDiv.classList.remove('hidden');
 
-                // Now assign the final local bests to the outer scope variables for redrawing on resize
+                // Assign local bests to the outer scope variables for redrawing on resize
                 bestOptimumShortMA = currentBestShortMA;
                 bestOptimumLongMA = currentBestLongMA;
                 bestOptimumPerformance = currentBestPerformance;
@@ -1153,10 +1145,10 @@
                 comprehensiveOptimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for comprehensive optimum strategy (this may take a moment)...', 'info', comprehensiveOptimizationMessageBox);
 
-                let currentBestProfit = -Infinity; // Renamed to avoid conflict
-                bestComprehensiveShortMA = 0;
-                bestComprehensiveLongMA = 0;
-                bestComprehensivePerformance = null;
+                let bestProfit = -Infinity; // Local variable for the best profit in this run
+                let currentBestComprehensiveShortMA = 0;
+                let currentBestComprehensiveLongMA = 0;
+                let currentBestComprehensivePerformance = null;
 
                 for (let shortPeriod = autoMinShort; shortPeriod <= autoMaxShort; shortPeriod++) {
                     for (let longPeriod = autoMinLong; longPeriod <= autoMaxLong; longPeriod++) {
@@ -1169,11 +1161,11 @@
 
                         const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > currentBestProfit) {
-                            currentBestProfit = performance.totalProfitLoss;
-                            bestComprehensiveShortMA = shortPeriod;
-                            bestComprehensiveLongMA = longPeriod;
-                            bestComprehensivePerformance = performance;
+                        if (performance.totalProfitLoss > bestProfit) { // Compare with outer bestProfit
+                            bestProfit = performance.totalProfitLoss; // Assign to outer bestProfit
+                            currentBestComprehensiveShortMA = shortPeriod;
+                            currentBestComprehensiveLongMA = longPeriod;
+                            currentBestComprehensivePerformance = performance;
                         }
                     }
                 }
@@ -1181,10 +1173,16 @@
                 comprehensiveOptimizationSpinner.style.display = 'none';
                 comprehensiveOptimizationResults.classList.remove('hidden');
 
+                // Assign local bests to the outer scope variables for redrawing on resize
+                bestComprehensiveShortMA = currentBestComprehensiveShortMA;
+                bestComprehensiveLongMA = currentBestComprehensiveLongMA;
+                bestComprehensivePerformance = currentBestComprehensivePerformance;
+
+
                 compOptimumShortMASpan.textContent = `Optimum Short MA Period: ${bestComprehensiveShortMA}`;
                 compOptimumLongMASpan.textContent = `Optimum Long MA Period: ${bestComprehensiveLongMA}`;
-                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit.toFixed(2)} USD`;
-                compOptimumProfitSpan.style.color = currentBestProfit >= 0 ? '#10b981' : '#ef4444';
+                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
+                compOptimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestComprehensivePerformance) {
                     compOptimumTotalTradesSpan.textContent = `Total completed trades: ${bestComprehensivePerformance.tradesCount}`;
@@ -1196,9 +1194,9 @@
                     compOptimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (currentBestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount > 0) {
+                if (bestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount > 0) {
                      showMessageBox(`Comprehensive optimization complete. While trades were made, no net positive profit strategy was found. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', comprehensiveOptimizationMessageBox);
-                } else if (currentBestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount === 0) {
+                } else if (bestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount === 0) {
                      showMessageBox(`Comprehensive optimization complete. No trades were made with any strategy. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', comprehensiveOptimizationMessageBox);
                 }
                 else {
@@ -1252,8 +1250,8 @@
                 }
 
                 // Show last 5 rows (most recent)
-                if (numRowsToShow > 5 || (numRowsToShow <=5 && dataToDisplay.length > 5)) { // Changed condition for showing last 5
-                    const startLastFive = Math.max(dataToDisplay.length - 5, Math.min(numRowsToShow, 5)); // Ensure no overlap
+                if (numRowsToShow > 5 || (numRowsToShow <=5 && dataToDisplay.length > 5)) {
+                    const startLastFive = Math.max(dataToDisplay.length - 5, Math.min(numRowsToShow, 5));
                     for (let i = startLastFive; i < dataToDisplay.length; i++) {
                         const rowData = dataToDisplay[i];
                         const row = dataPreviewTableBody.insertRow();
