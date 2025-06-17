@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.7 -->
+    <!-- Version: 12.8 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -1289,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const { settings, performance } = comprehensiveStrategyData;
+        const { settings, performance, prices } = comprehensiveStrategyData;
         const resultBox = elements.aiAnalysisResultBox;
         resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
         resultBox.classList.remove('hidden');
@@ -1305,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             `Volume Filter: ${settings.useVolumeFilter ? `Enabled (MA Period: ${settings.volumeMAPeriod})` : 'Disabled'}`
         ].join('\n- ');
 
-        const prompt = `You are a helpful trading strategy analyst.
+        let prompt = `You are a helpful trading strategy analyst.
 
         Based on the following **optimized** trading strategy parameters and its performance results for Bitcoin (BTC/USD), provide a concise analysis.
 
@@ -1329,6 +1329,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         3. Potential strengths and weaknesses based on the **complete set of rules** that were active for this optimization. For example, mention how the combination of MA periods and active filters likely influenced the outcome.
 
         Do not give financial advice. The analysis should be based *only* on the provided data.`;
+        
+        if (performance.inPositionAtEnd) {
+            const lastBuySignal = performance.signals.filter(s => s.type === 'buy').pop();
+            if (lastBuySignal) {
+                const buyPrice = lastBuySignal.price;
+                const btcAmount = lastBuySignal.btc;
+                const cashInvested = buyPrice * btcAmount;
+                const lastPrice = prices[prices.length - 1].price;
+                const currentValue = lastPrice * btcAmount;
+                const currentGrossProfit = currentValue - cashInvested;
+
+                let scenarioText = `\n\n**Additional Context: Open Position Analysis**
+                - The simulation ended with an open trade, bought at $${formatNumber(buyPrice)}.
+                - If sold at the last known price of $${formatNumber(lastPrice)}, the approximate gross profit/loss would be $${formatNumber(currentGrossProfit)}.`;
+
+                if (settings.useSLTP) {
+                    const slPrice = buyPrice * (1 - settings.stopLoss / 100);
+                    const slValue = slPrice * btcAmount;
+                    const slGrossProfit = slValue - cashInvested;
+
+                    const tpPrice = buyPrice * (1 + settings.takeProfit / 100);
+                    const tpValue = tpPrice * btcAmount;
+                    const tpGrossProfit = tpValue - cashInvested;
+
+                    scenarioText += `\n- The Stop-Loss is set at ~ $${formatNumber(slPrice)} (Approx. P/L: $${formatNumber(slGrossProfit)}).
+- The Take-Profit is set at ~ $${formatNumber(tpPrice)} (Approx. P/L: $${formatNumber(tpGrossProfit)}).`;
+                }
+                
+                scenarioText += `\n\n**New Task:**
+                Please also incorporate this open position into your analysis. Briefly comment on the current state of this final trade (e.g., is it currently profitable?) and how the risk management (SL/TP levels) frames the potential outcomes.`;
+
+                prompt += scenarioText;
+            }
+        }
+
 
         try {
             let chatHistory = [];
