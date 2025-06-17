@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.1 -->
+    <!-- Version: 2.2 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -464,18 +464,14 @@
             let historicalPrices = []; // All loaded data (raw)
             let filteredPrices = []; // Data subset used for current simulation/optimization (based on date range)
 
-            // Removed minOverallPrice and overallPriceRange as charts now scale to filtered data
-            // let minOverallPrice = Infinity; 
-            // let overallPriceRange = 0;    
+            // These are now initialized once in the outer scope
+            let bestOptimumShortMA = 0;
+            let bestOptimumLongMA = 0;
+            let bestOptimumPerformance = null;
 
-
-            let bestOptimumShortMA = 0; // Stored for redraw on resize (manual opt)
-            let bestOptimumLongMA = 0;  // Stored for redraw on resize (manual opt)
-            let bestOptimumPerformance = null; // Stored for redraw on resize (manual opt)
-
-            let bestComprehensiveShortMA = 0; // Stored for redraw on resize (comprehensive opt)
-            let bestComprehensiveLongMA = 0;  // Stored for redraw on resize (comprehensive opt)
-            let bestComprehensivePerformance = null; // Stored for redraw on resize (comprehensive opt)
+            let bestComprehensiveShortMA = 0;
+            let bestComprehensiveLongMA = 0;
+            let bestComprehensivePerformance = null;
 
 
             // Set canvas dimensions
@@ -624,7 +620,7 @@
 
             // --- Technical Analysis Functions ---
             function calculateSMA(data, period) {
-                if (period <= 0 || data.length === 0 || period > data.length) {
+                if (period <= 0 || data.length === 0 || period > data.length) { // Added data.length === 0 check
                     return Array(data.length).fill(null);
                 }
                 const sma = [];
@@ -1046,7 +1042,7 @@
                 optimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for optimum strategy...', 'info', optimizationMessageBox);
 
-                let bestProfit = -Infinity;
+                let bestProfit = -Infinity; // Local declaration is correct
                 bestShortMA = 0;
                 bestLongMA = 0;
                 bestOptimumPerformance = null;
@@ -1151,7 +1147,7 @@
                 comprehensiveOptimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for comprehensive optimum strategy (this may take a moment)...', 'info', comprehensiveOptimizationMessageBox);
 
-                let bestProfit = -Infinity;
+                let bestProfit = -Infinity; // Local declaration is correct
                 bestComprehensiveShortMA = 0;
                 bestComprehensiveLongMA = 0;
                 bestComprehensivePerformance = null;
