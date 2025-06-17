@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.8 -->
+    <!-- Version: 2.9 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -588,13 +588,18 @@
                 for (let i = 1; i < lines.length; i++) {
                     const columns = lines[i].split(',');
                     const closePrice = columns[closePriceIndex] ? parseFloat(columns[closePriceIndex]) : NaN;
-                    const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '') : '';
+                    // Clean the date string: remove " UTC"
+                    const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '').replace(' UTC', '') : '';
 
-                    if (!isNaN(closePrice)) {
+                    if (!isNaN(closePrice) && date) { // Ensure date string is not empty too
                         data.push({
                             price: closePrice,
                             date: date
                         });
+                        // Debug: log parsed row data for a few rows
+                        // if (i < 5) console.log(`Parsed row ${i}: Date=${date}, Close=${closePrice}, Is NaN?=${isNaN(closePrice)}, Date Object Valid?=${!isNaN(new Date(date).getTime())}`);
+                    } else {
+                        // if (i < 5) console.log(`Skipped row ${i} due to NaN closePrice or empty date: ${columns[closePriceIndex]}, ${columns[dateIndex]}`);
                     }
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
@@ -1280,8 +1285,45 @@
 
             historicalPrices = await fetchCSV(csvFilePath);
 
-            // Initial display of latest data info and preview table
-            updateDataPreviewTable(historicalPrices); // Show for full historical data initially
+            // Set default date range if data is available
+            if (historicalPrices.length > 0) {
+                // Get the last date in the historical data
+                const lastDataDate = new Date(historicalPrices[historicalPrices.length - 1].date);
+                endDateInput.value = lastDataDate.toISOString().split('T')[0];
+
+                // Calculate 12 months prior to the last date
+                const twelveMonthsAgo = new Date(lastDataDate);
+                twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+                // Set start date to either 12 months ago or the very first available date, whichever is more recent
+                const firstDataDate = new Date(historicalPrices[0].date);
+                const defaultStartDate = (firstDataDate > twelveMonthsAgo) ? firstDataDate : twelveMonthsAgo;
+                startDateInput.value = defaultStartDate.toISOString().split('T')[0];
+
+                console.log('First Data Date:', firstDataDate, 'Is Valid:', !isNaN(firstDataDate.getTime()));
+                console.log('Last Data Date:', lastDataDate, 'Is Valid:', !isNaN(lastDataDate.getTime()));
+                console.log('Default Start Date set to:', startDateInput.value);
+                console.log('Default End Date set to:', endDateInput.value);
+
+                const latestData = historicalPrices[historicalPrices.length - 1];
+                latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
+                latestDataInfo.classList.remove('hidden');
+
+                dataPreviewTableBody.innerHTML = ''; // Clear existing
+                const numPreviewRows = Math.min(historicalPrices.length, 10);
+                for (let i = historicalPrices.length - 1; i >= historicalPrices.length - numPreviewRows; i--) {
+                    const rowData = historicalPrices[i];
+                    const row = dataPreviewTableBody.insertRow();
+                    const dateCell = row.insertCell();
+                    const priceCell = row.insertCell();
+                    dateCell.textContent = new Date(rowData.date).toLocaleDateString();
+                    priceCell.textContent = `$${rowData.price.toFixed(2)}`;
+                }
+                dataPreviewSection.classList.remove('hidden');
+            } else {
+                latestDataInfo.classList.add('hidden');
+                dataPreviewSection.classList.add('hidden');
+            }
 
 
             runSimulationBtn.addEventListener('click', runSimulation);
