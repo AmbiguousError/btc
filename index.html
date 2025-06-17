@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 1.8 -->
+    <!-- Version: 1.9 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -780,9 +780,9 @@
                 // Y-axis labels
                 const numYLabels = 5;
                 for (let i = 0; i <= numYLabels; i++) {
-                    const priceLabel = minPrice + (priceRange / numYLabels * i);
+                    const priceLabel = minOverallPrice + (overallPriceRange / numYLabels * i); // Use overall range
                     const yPos = getY(priceLabel);
-                    ctx.fillText(`${priceLabel.toFixed(2)}`, canvasWidth - 10, yPos); // Changed to toFixed(2) for USD
+                    ctx.fillText(`$${priceLabel.toFixed(2)}`, canvasWidth - 10, yPos); // Changed to toFixed(2) for USD
                 }
                 ctx.textAlign = 'left';
 
@@ -865,10 +865,11 @@
                 // Filter historical data based on date range inputs
                 const startDate = startDateInput.value;
                 const endDate = endDateInput.value;
-                const filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate);
+                filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate); // Update filteredPrices
+
 
                 console.log('runSimulation started. shortPeriod:', shortPeriod, 'longPeriod:', longPeriod); // Debugging: log inputs
-                console.log('historicalPrices length:', historicalPrices.length); // Debugging: log data length
+                console.log('historicalPrices length (full):', historicalPrices.length); // Debugging: log data length
                 console.log('Filtered prices length:', filteredPrices.length); // Debugging: log filtered data length
 
 
@@ -933,7 +934,7 @@
                 // Filter historical data based on date range inputs
                 const startDate = startDateInput.value;
                 const endDate = endDateInput.value;
-                const filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate);
+                filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate); // Update filteredPrices
 
                 if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
                     minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
@@ -1036,15 +1037,11 @@
 
             // Set default date range if data is available
             if (historicalPrices.length > 0) {
-                // Set start date to roughly 1 year ago or the earliest data point if less than 1 year
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                
+                // Set default start date to the earliest possible date from the CSV
                 const firstDataDate = new Date(historicalPrices[0].date);
                 const lastDataDate = new Date(historicalPrices[historicalPrices.length - 1].date);
 
-                // Set default start date to max of (1 year ago or first data date)
-                startDateInput.value = (firstDataDate > oneYearAgo ? firstDataDate : oneYearAgo).toISOString().split('T')[0];
+                startDateInput.value = firstDataDate.toISOString().split('T')[0];
                 endDateInput.value = lastDataDate.toISOString().split('T')[0];
 
 
@@ -1052,8 +1049,9 @@
                 latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
                 latestDataInfo.classList.remove('hidden');
 
-                dataPreviewTableBody.innerHTML = '';
+                dataPreviewTableBody.innerHTML = ''; // Clear existing
                 const numPreviewRows = Math.min(historicalPrices.length, 10);
+                // Iterate backwards to show latest data at the top of the table
                 for (let i = historicalPrices.length - 1; i >= historicalPrices.length - numPreviewRows; i--) {
                     const rowData = historicalPrices[i];
                     const row = dataPreviewTableBody.insertRow();
