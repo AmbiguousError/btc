@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 9.0 -->
+    <!-- Version: 9.0 v1-->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -914,7 +914,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         hideSpinner(spinner);
                         return;
                     }
-
                     // Loop through all 16 combinations of filters
                     for (let i = 0; i < 16; i++) {
                         const currentFilterSettings = {
@@ -1029,6 +1028,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.comprehensiveTradesTableContainer.classList.toggle('hidden', trades.length === 0);
         elements.comprehensiveTradesSummaryContainer.classList.toggle('hidden', trades.length === 0);
 
+
         if(trades.length > 0){
             let totalGrossProfit = 0;
             trades.forEach(trade => {
@@ -1069,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
         resultBox.classList.remove('hidden');
 
-        const { finalValue } = performance;
+        const { finalValue, preTaxFinalValue } = performance;
         const netProfit = finalValue - settings.initialInvestment;
         const numTrades = performance.signals.filter(s => s.type === 'sell').length;
 
@@ -1106,27 +1106,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         Do not give financial advice. The analysis should be based *only* on the provided data.`;
 
         try {
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, {
+            const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ prompt })
             });
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                let text = result.candidates[0].content.parts[0].text;
-                text = text.replace(/```html|```/g, '');
-                resultBox.innerHTML = `<h4>✨ AI Strategy Analysis</h4>${text}`;
-            } else {
-                 resultBox.innerHTML = `<p class="text-red-500">Could not retrieve AI analysis. The response was empty.</p>`;
-            }
+            const { text } = await response.json();
+            resultBox.innerHTML = `<h4>✨ AI Strategy Analysis</h4>${text}`;
         } catch (error) {
-            console.error("Error calling Gemini API:", error);
+            console.error("Error calling backend for analysis:", error);
             resultBox.innerHTML = `<p class="text-red-500">An error occurred while analyzing the strategy. Please check the console for details.</p>`;
         }
     }
@@ -1157,76 +1145,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
          context += " Provide a balanced strategy. The short MA must be less than the long MA.";
 
-
-        const schema = {
-            type: "OBJECT",
-            properties: {
-                "shortMA": { "type": "INTEGER" },
-                "longMA": { "type": "INTEGER" },
-                "rsiPeriod": { "type": "INTEGER" },
-                "rsiOverbought": { "type": "INTEGER" },
-                "rsiOversold": { "type": "INTEGER" },
-                "bbPeriod": { "type": "INTEGER" },
-                "bbStdDev": { "type": "NUMBER" },
-                "volumeMAPeriod": { "type": "INTEGER" },
-                "stopLoss": { "type": "NUMBER" },
-                "takeProfit": { "type": "NUMBER" },
-                "useSLTP": { "type": "BOOLEAN" },
-                "useRsiFilter": { "type": "BOOLEAN" },
-                "useBBFilter": { "type": "BOOLEAN" },
-                "useVolumeFilter": { "type": "BOOLEAN" }
-            }
-        };
-
-        const prompt = context;
-        
         try {
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-            const payload = { 
-                contents: chatHistory,
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: schema
-                }
-            };
-            const apiKey = "";
-            const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-            const apiUrl = apiKey ? `${baseUrl}?key=${apiKey}` : baseUrl;
-
-            const response = await fetch(apiUrl, {
+             const response = await fetch('/api/suggest', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ prompt: context })
             });
-            
-            if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                let jsonText = result.candidates[0].content.parts[0].text;
-                jsonText = jsonText.replace(/```json|```/g, '').trim();
-                const suggestions = JSON.parse(jsonText);
-                Object.keys(suggestions).forEach(key => {
-                    if(elements[key]){
-                        if(elements[key].type === 'checkbox'){
-                            elements[key].checked = suggestions[key];
-                        } else {
-                            elements[key].value = suggestions[key];
-                        }
+            const suggestions = await response.json();
+             Object.keys(suggestions).forEach(key => {
+                if(elements[key]){
+                    if(elements[key].type === 'checkbox'){
+                        elements[key].checked = suggestions[key];
+                    } else {
+                        elements[key].value = suggestions[key];
                     }
-                });
-                runSimulation();
-            } else {
-                console.error("AI suggestions response was empty or malformed:", result);
-                alert("Could not get AI suggestions. The model returned an empty response.");
-            }
+                }
+            });
+            runSimulation();
         } catch (error) {
-            console.error("Error calling Gemini API for suggestions:", error);
+            console.error("Error calling backend for suggestions:", error);
             alert(`An error occurred while getting AI suggestions: ${error.message}`);
         } finally {
             btn.innerHTML = '✨ Get AI Suggestions';
