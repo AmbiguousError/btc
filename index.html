@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 8.0 -->
+    <!-- Version: 8.0 (Patched) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -1082,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -1107,9 +1107,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     function setDefaults() {
         Object.keys(defaultSettings).forEach(key => {
-            if(elements[key].type === 'checkbox') {
+            if(elements[key] && elements[key].type === 'checkbox') {
                 elements[key].checked = defaultSettings[key];
-            } else {
+            } else if (elements[key]) {
                 elements[key].value = defaultSettings[key];
             }
         });
@@ -1120,6 +1120,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = elements.getAISuggestionsBtn;
         btn.innerHTML = '<div class="loading-spinner" style="display: inline-block; border-top-color: white;"></div>';
         btn.disabled = true;
+        
+        const recentData = filteredPrices.slice(-30);
+        let context = "Suggest a set of parameters for a BTC/USD trading strategy.";
+        if(recentData.length > 1) {
+            const startPrice = recentData[0].price;
+            const endPrice = recentData[recentData.length - 1].price;
+            const trend = endPrice > startPrice ? 'uptrend' : 'downtrend';
+            context += ` The market has been in a general ${trend} over the last 30 days, moving from approximately $${Math.round(startPrice)} to $${Math.round(endPrice)}.`;
+        }
+         context += " Provide a balanced strategy. The short MA must be less than the long MA.";
+
 
         const schema = {
             type: "OBJECT",
@@ -1141,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         };
 
-        const prompt = "Suggest a set of parameters for a BTC/USD trading strategy based on current market conditions. The short MA should be less than the long MA.";
+        const prompt = context;
         
         try {
             let chatHistory = [];
@@ -1160,10 +1171,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody}`);
+            }
+            
             const result = await response.json();
             
             if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                const jsonText = result.candidates[0].content.parts[0].text;
+                let jsonText = result.candidates[0].content.parts[0].text;
+                // Clean markdown fences if they exist
+                jsonText = jsonText.replace(/```json|```/g, '').trim();
                 const suggestions = JSON.parse(jsonText);
                 Object.keys(suggestions).forEach(key => {
                     if(elements[key]){
@@ -1176,11 +1195,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 runSimulation();
             } else {
-                alert("Could not get AI suggestions.");
+                console.error("AI suggestions response was empty or malformed:", result);
+                alert("Could not get AI suggestions. The model returned an empty response.");
             }
         } catch (error) {
             console.error("Error calling Gemini API for suggestions:", error);
-            alert("An error occurred while getting AI suggestions.");
+            alert(`An error occurred while getting AI suggestions: ${error.message}`);
         } finally {
             btn.innerHTML = '✨ Get AI Suggestions';
             btn.disabled = false;
