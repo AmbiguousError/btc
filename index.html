@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Version: 1.1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USD/Bitcoin Trading Opportunity Identifier</title>
@@ -186,6 +187,25 @@
             margin-bottom: 10px;
             text-align: center;
         }
+        .data-preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+        .data-preview-table th, .data-preview-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+        }
+        .data-preview-table th {
+            background-color: #e9eef4;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .data-preview-table tbody tr:nth-child(odd) {
+            background-color: #f8fafc;
+        }
 
 
         /* Responsive adjustments */
@@ -256,6 +276,21 @@
         </div>
         <div id="dataLengthWarning" class="warning-message hidden"></div>
         <p id="latestDataInfo" class="data-info hidden"></p>
+
+        <div id="dataPreviewSection" class="results-box hidden">
+            <h3>First 10 Data Points from CSV:</h3>
+            <table class="data-preview-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Close Price (BTC)</th>
+                    </tr>
+                </thead>
+                <tbody id="dataPreviewTableBody">
+                    <!-- Data will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
 
 
         <div id="currentSimulationSection" class="chart-section mb-8">
@@ -355,6 +390,9 @@
 
             // Data Info
             const latestDataInfo = document.getElementById('latestDataInfo');
+            const dataPreviewSection = document.getElementById('dataPreviewSection');
+            const dataPreviewTableBody = document.getElementById('dataPreviewTableBody');
+
 
             // Hover elements
             const hoverInfoBox = document.getElementById('hoverInfoBox');
@@ -570,6 +608,9 @@
                 const minPrice = Math.min(...allValues);
                 const maxPrice = Math.max(...allValues);
                 const priceRange = maxPrice - minPrice;
+
+                console.log('Chart drawing values:', { minPrice: minPrice, maxPrice: maxPrice, priceRange: priceRange, pricesLength: pricesData.length });
+
 
                 if (priceRange === 0) {
                     if (isMainChart) showMessageBox('Price range is zero. Cannot draw chart. This might happen if all loaded prices are identical, or there\'s insufficient data range.', 'error', messageBox);
@@ -944,17 +985,31 @@
             }
 
             // Path for the CSV file (using /__run__/resources/ for Canvas environment)
-            const csvFilePath = './Binance_1INCHBTC_d.csv'; // Changed to relative path
+            const csvFilePath = './Binance_1INCHBTC_d.csv';
 
             historicalPrices = await fetchCSV(csvFilePath);
 
-            // Display latest data info if loaded
+            // Display latest data info and preview table if loaded
             if (historicalPrices.length > 0) {
                 const latestData = historicalPrices[historicalPrices.length - 1];
                 latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price ${latestData.price.toFixed(8)} BTC`;
                 latestDataInfo.classList.remove('hidden');
+
+                // Populate data preview table
+                dataPreviewTableBody.innerHTML = ''; // Clear existing
+                const numPreviewRows = Math.min(historicalPrices.length, 10);
+                for (let i = 0; i < numPreviewRows; i++) {
+                    const rowData = historicalPrices[i];
+                    const row = dataPreviewTableBody.insertRow();
+                    const dateCell = row.insertCell();
+                    const priceCell = row.insertCell();
+                    dateCell.textContent = new Date(rowData.date).toLocaleDateString();
+                    priceCell.textContent = rowData.price.toFixed(8);
+                }
+                dataPreviewSection.classList.remove('hidden');
             } else {
                 latestDataInfo.classList.add('hidden');
+                dataPreviewSection.classList.add('hidden');
             }
 
 
