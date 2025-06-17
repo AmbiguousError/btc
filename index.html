@@ -416,9 +416,8 @@
                     const response = await fetch(filePath);
                     if (!response.ok) {
                         console.error('Fetch response not OK:', response.status, response.statusText);
-                        // More explicit network error handling
                         let errorMessage = `HTTP error! status: ${response.status} - ${response.statusText}`;
-                        if (response.status === 0) { // Often means network error or CORS preflight failure
+                        if (response.status === 0) {
                             errorMessage = 'Network Error: Unable to reach the server or CORS policy blocked the request. Check your internet connection or browser console for CORS details.';
                         }
                         throw new Error(errorMessage);
@@ -445,7 +444,8 @@
                 const rawHeaders = lines[0].split(';');
                 const headers = rawHeaders.map(h => h.trim().replace(/"/g, ''));
 
-                const closePriceIndex = headers.indexOf('Close');
+                // Updated to match the new CSV header "Close"
+                const closePriceIndex = headers.indexOf('Close'); 
                 const dateIndex = headers.indexOf('Date');
 
                 if (closePriceIndex === -1) {
@@ -459,7 +459,6 @@
                 const data = [];
                 for (let i = 1; i < lines.length; i++) {
                     const columns = lines[i].split(';');
-                    // Check if column exists before parsing
                     const closePrice = columns[closePriceIndex] ? parseFloat(columns[closePriceIndex]) : NaN;
                     const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '') : '';
 
@@ -945,7 +944,7 @@
             }
 
             // Path for the CSV file (using /__run__/resources/ for Canvas environment)
-            const csvFilePath = './Binance_1INCHBTC_d.csv';
+            const csvFilePath = './Binance_1INCHBTC_d.csv'; // Changed to relative path
 
             historicalPrices = await fetchCSV(csvFilePath);
 
