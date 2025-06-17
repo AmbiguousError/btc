@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.10 -->
+    <!-- Version: 2.11 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -441,7 +441,7 @@
             const compOptimumLongMASpan = document.getElementById('compOptimumLongMA');
             const compOptimumProfitSpan = document.getElementById('compOptimumProfit');
             const compOptimumTotalTradesSpan = document.getElementById('compOptimumTotalTrades');
-            const compOptimumWinningTradesSpan = document.getElementById('compOptimumWinningTrades');
+            const compOptimumWinningTradesSpan = document = document.getElementById('compOptimumWinningTrades');
             const compOptimumLosingTradesSpan = document.getElementById('compOptimumLosingTrades');
             const comprehensiveOptimizationMessageBox = document.getElementById('comprehensiveOptimizationMessageBox');
 
@@ -718,11 +718,19 @@
                 const prices = pricesData.map(d => d.price);
 
                 const allValues = [...prices, ...shortMA.filter(v => v !== null), ...longMA.filter(v => v !== null)];
-                const minChartPrice = Math.min(...allValues); // Use local min/max for the current filtered view
-                const maxChartPrice = Math.max(...allValues); // Use local min/max for the current filtered view
-                const chartPriceRange = maxChartPrice - minChartPrice;
+                let minChartPrice = Math.min(...allValues); 
+                let maxChartPrice = Math.max(...allValues); 
+                let chartPriceRange = maxChartPrice - minChartPrice;
 
-                console.log('Chart drawing values:', { minPrice: minChartPrice, maxPrice: maxChartPrice, priceRange: chartPriceRange, pricesLength: pricesData.length });
+                // Extend the vertical axis by 10%
+                if (chartPriceRange > 0) {
+                    const extensionAmount = chartPriceRange * 0.10; // 10% of the current range
+                    minChartPrice -= extensionAmount / 2; // Extend 5% below
+                    maxChartPrice += extensionAmount / 2; // Extend 5% above
+                    chartPriceRange = maxChartPrice - minChartPrice; // Recalculate new range
+                }
+
+                console.log('Chart drawing values (extended):', { minPrice: minChartPrice, maxPrice: maxChartPrice, priceRange: chartPriceRange, pricesLength: pricesData.length });
 
 
                 if (chartPriceRange === 0) { // Check for local price range, not overall
@@ -1273,7 +1281,7 @@
                  // Update latestDataInfo based on filtered data
                 if (filteredPrices.length > 0) {
                     const latestData = filteredPrices[filteredPrices.length - 1];
-                    latestDataInfo.textContent = `Latest Data in Range: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
+                    latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
                     latestDataInfo.classList.remove('hidden');
                 } else {
                     latestDataInfo.classList.add('hidden');
