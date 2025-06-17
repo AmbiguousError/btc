@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 3.3 -->
+    <!-- Version: 3.4 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with RSI and Optimization</title>
@@ -37,11 +37,11 @@
             width: 100%;
             height: auto;
         }
-        #currentChartCanvas, #optimumChartCanvas, #comprehensiveOptimumChartCanvas {
+        #currentChartCanvas, #optimumChartCanvas, #comprehensiveOptimumChartCanvas, #rsiFilteredChartCanvas {
             aspect-ratio: 16 / 9;
              max-height: 450px;
         }
-        #rsiChartCanvas {
+        #rsiChartCanvas, #rsiFilteredRsiChartCanvas {
             aspect-ratio: 16 / 5;
             max-height: 150px;
         }
@@ -132,6 +132,15 @@
             <div id="currentSimulationResults" class="results-box hidden mt-4"></div>
         </div>
 
+        <div id="rsiFilteredSimulationSection" class="chart-section mt-6 border-t-4 border-indigo-300 pt-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">RSI-Filtered Strategy Simulation</h2>
+             <p class="text-gray-600 text-center mb-6">This is a copy of the simulation above, but with the RSI filter forcibly enabled to show how it avoids signals in overbought/oversold zones.</p>
+            <canvas id="rsiFilteredChartCanvas"></canvas>
+            <canvas id="rsiFilteredRsiChartCanvas" class="mt-4"></canvas>
+            <div id="rsiFilteredHoverInfoBox" class="hover-info-box"></div>
+            <div id="rsiFilteredSimulationResults" class="results-box hidden mt-4"></div>
+        </div>
+
         <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Manual Strategy Optimization</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,6 +161,7 @@
 
         <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
+            <p class="text-gray-600 text-center mb-6">Tests all Short MA periods from 2-30 against all longer MA periods up to 100.</p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary w-full">Find Comprehensive Optimum Strategy</button>
             <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
             <div id="comprehensiveOptimizationResults" class="optimization-results hidden mt-4"></div>
@@ -177,6 +187,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Canvases
         currentChartCanvas: document.getElementById('currentChartCanvas'),
         rsiChartCanvas: document.getElementById('rsiChartCanvas'),
+        rsiFilteredChartCanvas: document.getElementById('rsiFilteredChartCanvas'),
+        rsiFilteredRsiChartCanvas: document.getElementById('rsiFilteredRsiChartCanvas'),
         optimumChartCanvas: document.getElementById('optimumChartCanvas'),
         comprehensiveOptimumChartCanvas: document.getElementById('comprehensiveOptimumChartCanvas'),
         // Inputs
@@ -204,12 +216,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         dataPreviewSection: document.getElementById('dataPreviewSection'),
         dataPreviewTableBody: document.getElementById('dataPreviewTableBody'),
         currentSimulationResults: document.getElementById('currentSimulationResults'),
+        rsiFilteredSimulationResults: document.getElementById('rsiFilteredSimulationResults'),
         optimizationResults: document.getElementById('optimizationResults'),
         comprehensiveOptimizationResults: document.getElementById('comprehensiveOptimizationResults'),
         optimumStrategyChartSection: document.getElementById('optimumStrategyChartSection'),
         comprehensiveOptimumStrategyChartSection: document.getElementById('comprehensiveOptimumStrategyChartSection'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
+        rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
         optimumHoverInfoBox: document.getElementById('optimumHoverInfoBox'),
         comprehensiveHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox')
     };
@@ -538,13 +552,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const shortMA = calculateSMA(filteredPrices, settings.shortPeriod);
         const longMA = calculateSMA(filteredPrices, settings.longPeriod);
         const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
+        
+        // Normal simulation
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, settings);
-        
         renderPerformanceResults(elements.currentSimulationResults, performance);
-        
         drawChart(elements.currentChartCanvas, filteredPrices, shortMA, longMA, performance.signals, hoverInfo ? { ...hoverInfo, box: elements.hoverInfoBox } : null);
         const {ctx, width, height} = setupCanvas(elements.rsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo ? { ...hoverInfo, box: elements.hoverInfoBox } : null);
+
+        // RSI-Filtered simulation
+        const rsiFilteredSettings = {...settings, useRsiFilter: true};
+        const rsiFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, rsiFilteredSettings);
+        renderPerformanceResults(elements.rsiFilteredSimulationResults, rsiFilteredPerformance);
+        drawChart(elements.rsiFilteredChartCanvas, filteredPrices, shortMA, longMA, rsiFilteredPerformance.signals, hoverInfo ? { ...hoverInfo, box: elements.rsiFilteredHoverInfoBox } : null);
+        const {ctx: rsiFCtx, width: rsiFWidth, height: rsiFHeight} = setupCanvas(elements.rsiFilteredRsiChartCanvas);
+        drawRSIChart(rsiFCtx, rsiFWidth, rsiFHeight, rsi, settings, hoverInfo ? { ...hoverInfo, box: elements.rsiFilteredHoverInfoBox } : null);
     }
     
     function findOptimum(isComprehensive = false) {
@@ -553,19 +575,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const container = isComprehensive ? elements.comprehensiveOptimizationResults : elements.optimizationResults;
         const spinner = isComprehensive ? elements.comprehensiveOptimizationSpinner : elements.optimizationSpinner;
         
-        let minShort, maxShort, minLong, maxLong;
-        if(isComprehensive) {
-            minShort = 2; maxShort = 30; minLong = 31; maxLong = 100;
-        } else {
-            minShort = parseInt(elements.minShortMA.value); maxShort = parseInt(elements.maxShortMA.value);
-            minLong = parseInt(elements.minLongMA.value); maxLong = parseInt(elements.maxLongMA.value);
-        }
-
-        if (maxLong > filteredPrices.length) {
-            showResults(container, `<div class="warning-message">Not enough data. Need ${maxLong}, have ${filteredPrices.length}.</div>`);
-            return;
-        }
-        
         showSpinner(spinner);
         showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
 
@@ -573,17 +582,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             let bestPerf = { totalProfitLoss: -Infinity }, bestShort = 0, bestLong = 0;
             const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
 
-            for (let short = minShort; short <= maxShort; short++) {
-                for (let long = minLong; long <= maxLong; long++) {
-                    if (short >= long) continue;
-                    const shortMA = calculateSMA(filteredPrices, short);
-                    const longMA = calculateSMA(filteredPrices, long);
-                    const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, {...settings, shortPeriod: short, longPeriod: long});
-                    if (perf.totalProfitLoss > bestPerf.totalProfitLoss) {
-                        bestPerf = perf; bestShort = short; bestLong = long;
+            const loopRunner = () => {
+                if (isComprehensive) {
+                    const maxShortComprehensive = 30;
+                    const maxLongComprehensive = 100;
+                     if (maxLongComprehensive > filteredPrices.length) {
+                        showResults(container, `<div class="warning-message">Not enough data. Need ${maxLongComprehensive}, have ${filteredPrices.length}.</div>`);
+                        hideSpinner(spinner);
+                        return;
+                    }
+                    for (let short = 2; short <= maxShortComprehensive; short++) {
+                        for (let long = short + 1; long <= maxLongComprehensive; long++) {
+                            runTest(short, long);
+                        }
+                    }
+                } else {
+                    const minShort = parseInt(elements.minShortMA.value);
+                    const maxShort = parseInt(elements.maxShortMA.value);
+                    const minLong = parseInt(elements.minLongMA.value);
+                    const maxLong = parseInt(elements.maxLongMA.value);
+                    if (maxLong > filteredPrices.length) {
+                        showResults(container, `<div class="warning-message">Not enough data. Need ${maxLong}, have ${filteredPrices.length}.</div>`);
+                        hideSpinner(spinner);
+                        return;
+                    }
+                    for (let short = minShort; short <= maxShort; short++) {
+                        for (let long = minLong; long <= maxLong; long++) {
+                            if (short >= long) continue;
+                            runTest(short, long);
+                        }
                     }
                 }
             }
+
+            const runTest = (short, long) => {
+                const shortMA = calculateSMA(filteredPrices, short);
+                const longMA = calculateSMA(filteredPrices, long);
+                const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, {...settings, shortPeriod: short, longPeriod: long});
+                if (perf.totalProfitLoss > bestPerf.totalProfitLoss) {
+                    bestPerf = perf; bestShort = short; bestLong = long;
+                }
+            };
+            
+            loopRunner();
 
             hideSpinner(spinner);
             const profitColor = bestPerf.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600';
@@ -594,7 +635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p>Max Profit: <span class="${profitColor}">$${bestPerf.totalProfitLoss.toFixed(2)}</span></p>
             `);
 
-            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
+            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimizationResults;
             const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
             chartSection.classList.remove('hidden');
             const bestShortMA = calculateSMA(filteredPrices, bestShort);
@@ -602,11 +643,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if(isComprehensive){
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals};
+                drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals);
             } else {
                 optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals};
+                drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals);
             }
-
-            drawChart(chartCanvas, filteredPrices, bestShortMA, bestLongMA, bestPerf.signals);
 
             elements.shortMA.value = bestShort;
             elements.longMA.value = bestLong;
@@ -619,40 +660,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         
-        const mainChartContainer = elements.currentChartCanvas.parentElement;
-        mainChartContainer.addEventListener('mousemove', e => {
-            const rect = elements.currentChartCanvas.getBoundingClientRect();
-            runSimulation({x: e.clientX - rect.left, y: e.clientY - rect.top});
+        const createHoverListener = (container, redrawFn) => {
+             container.addEventListener('mousemove', e => {
+                const rect = container.querySelector('canvas').getBoundingClientRect();
+                redrawFn({x: e.clientX - rect.left, y: e.clientY - rect.top});
+            });
+            container.addEventListener('mouseout', () => {
+                redrawFn(null);
+            });
+        };
+
+        createHoverListener(elements.currentSimulationSection, (hover) => {
+            runSimulation(hover);
+            if (!hover) hideHoverBox(elements.hoverInfoBox);
         });
-        mainChartContainer.addEventListener('mouseout', () => {
-            runSimulation();
-            hideHoverBox(elements.hoverInfoBox);
+        
+        createHoverListener(elements.rsiFilteredSimulationSection, (hover) => {
+            runSimulation(hover);
+            if (!hover) hideHoverBox(elements.rsiFilteredHoverInfoBox);
         });
 
-        elements.optimumStrategyChartSection.addEventListener('mousemove', e => {
+        createHoverListener(elements.optimumStrategyChartSection, (hover) => {
             if(!optimumStrategyData) return;
-            const rect = elements.optimumChartCanvas.getBoundingClientRect();
-            const hoverInfo = {x: e.clientX - rect.left, y: e.clientY - rect.top, box: elements.optimumHoverInfoBox};
+            const hoverInfo = hover ? { ...hover, box: elements.optimumHoverInfoBox } : null;
             drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals, hoverInfo);
-        });
-        elements.optimumStrategyChartSection.addEventListener('mouseout', () => {
-             if(!optimumStrategyData) return;
-            drawChart(elements.optimumChartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals, null);
-            hideHoverBox(elements.optimumHoverInfoBox);
+            if (!hover) hideHoverBox(elements.optimumHoverInfoBox);
         });
 
-        elements.comprehensiveOptimumStrategyChartSection.addEventListener('mousemove', e => {
-            if(!comprehensiveStrategyData) return;
-            const rect = elements.comprehensiveOptimumChartCanvas.getBoundingClientRect();
-            const hoverInfo = {x: e.clientX - rect.left, y: e.clientY - rect.top, box: elements.comprehensiveHoverInfoBox};
-            drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, hoverInfo);
-        });
-        elements.comprehensiveOptimumStrategyChartSection.addEventListener('mouseout', () => {
+        createHoverListener(elements.comprehensiveOptimumStrategyChartSection, (hover) => {
              if(!comprehensiveStrategyData) return;
-            drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, null);
-            hideHoverBox(elements.comprehensiveHoverInfoBox);
+             const hoverInfo = hover ? { ...hover, box: elements.comprehensiveHoverInfoBox } : null;
+            drawChart(elements.comprehensiveOptimumChartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals, hoverInfo);
+             if (!hover) hideHoverBox(elements.comprehensiveHoverInfoBox);
         });
-
     }
 
     async function initialize() {
