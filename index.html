@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 7.3 -->
+    <!-- Version: 7.4 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -1071,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "";
+            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -1081,7 +1081,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await response.json();
             
             if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
-                const text = result.candidates[0].content.parts[0].text;
+                let text = result.candidates[0].content.parts[0].text;
+                // Clean the response to remove markdown code fences
+                text = text.replace(/```html|```/g, '');
                 resultBox.innerHTML = `<h4>✨ AI Strategy Analysis</h4>${text}`;
             } else {
                  resultBox.innerHTML = `<p class="text-red-500">Could not retrieve AI analysis. The response was empty.</p>`;
@@ -1148,4 +1150,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-        
