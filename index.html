@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 1.6 -->
+    <!-- Version: 1.7 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -517,7 +517,7 @@
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
                 console.log('Historical Prices after parsing (first 5):', data.slice(0, 5)); // Debug: show first few items
-                return data.reverse(); // Ensure chronological order
+                return data; // Removed .reverse() here, as data should be chronological already
             }
 
             // --- Technical Analysis Functions ---
@@ -878,7 +878,7 @@
                 totalTradesSpan.textContent = `Total completed trades: ${performance.tradesCount}`;
                 winningTradesSpan.textContent = `Winning trades: ${performance.winningTrades}`;
                 losingTradesSpan.textContent = `Losing trades: ${performance.losingTrades}`;
-                simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of BTC traded)`; // Changed currency unit
+                simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of BTC traded)`;
                 simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444';
 
                 drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
@@ -956,7 +956,7 @@
 
                 optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestShortMA}`;
                 optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestLongMA}`;
-                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`; // Changed currency unit
+                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
                 optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
 
                 if (bestOptimumPerformance) {
