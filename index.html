@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.1 -->
+    <!-- Version: 12.2 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -623,8 +623,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        let finalValue = btc > 0 ? btc * prices[prices.length - 1].price : cash;
-        
+        const inPositionAtEnd = btc > 0;
+        let finalValue = inPositionAtEnd ? btc * prices[prices.length - 1].price : cash;
+
+        // If the simulation ends in cash, look for the next potential buy signal to display on the chart
+        if (!inPositionAtEnd) {
+            const lastSignalIndex = signals.length > 0 ? signals[signals.length - 1].index + 1 : 1;
+            for (let i = lastSignalIndex; i < prices.length; i++) {
+                if (shortMA[i-1] && longMA[i-1] && shortMA[i] && longMA[i]) { // Ensure we have data
+                    const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
+                    const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
+                    const bbConditionBuy = !settings.useBBFilter || prices[i].price < bb.middle[i];
+                    const volumeCondition = !settings.useVolumeFilter || prices[i].volume > volumeSMA[i];
+                    
+                    if (goldenCross && rsiCondition && bbConditionBuy && volumeCondition) {
+                        signals.push({ index: i, type: 'potential_buy', price: prices[i].price });
+                        break; // Found the next one, stop searching
+                    }
+                }
+            }
+        }
+
         const totalProfit = finalValue - settings.initialInvestment;
         let finalNetValue = finalValue;
 
@@ -723,15 +742,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         let lastBuySignal = null;
         signals.forEach(s => {
-            const x = getX(s.index), y = getY(s.price);
-            ctx.beginPath();
+            const x = getX(s.index);
+            const y = getY(s.price);
             
             if (s.type === 'buy') {
                 lastBuySignal = s;
-                ctx.fillStyle = '#22c55e'; // Green circle for buy
+                ctx.beginPath();
+                ctx.fillStyle = '#22c55e'; // Solid Green circle for buy
                 ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            } else { // Sell signals
-                if(lastBuySignal && settings.useSLTP){
+                ctx.fill();
+            } else if (s.type === 'potential_buy') {
+                ctx.beginPath();
+                ctx.strokeStyle = '#22c55e'; // Green outline for potential buy
+                ctx.lineWidth = 2;
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.stroke();
+            } else if (s.type === 'sell') {
+                if (lastBuySignal && settings.useSLTP) {
                     const stopLossLevel = getY(lastBuySignal.price * (1 - settings.stopLoss / 100));
                     const takeProfitLevel = getY(lastBuySignal.price * (1 + settings.takeProfit / 100));
                     drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: stopLossLevel}, {x: x, y: stopLossLevel}], '#ef4444', 1, true);
@@ -739,18 +766,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     lastBuySignal = null;
                 }
 
+                ctx.beginPath();
                 if (s.reason === 'stop_loss') {
-                    ctx.fillStyle = '#ef4444'; // Red
+                    ctx.fillStyle = '#ef4444'; // Red triangle
                     ctx.moveTo(x, y + 6); ctx.lineTo(x-6, y-3); ctx.lineTo(x+6, y-3); ctx.closePath();
                 } else if (s.reason === 'take_profit') {
-                    ctx.fillStyle = '#22c55e'; // Green
+                    ctx.fillStyle = '#22c55e'; // Green triangle
                     ctx.moveTo(x, y - 6); ctx.lineTo(x-6, y+3); ctx.lineTo(x+6, y+3); ctx.closePath();
                 } else { // death_cross
-                    ctx.fillStyle = '#ef4444'; // Red
+                    ctx.fillStyle = '#ef4444'; // Red square
                     ctx.rect(x-4, y-4, 8, 8);
                 }
+                ctx.fill();
             }
-            ctx.fill();
         });
 
         if (hoverInfo && hoverInfo.x !== -1) {
@@ -1249,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = ""; // API Key will be handled by the environment
+            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key will be handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
