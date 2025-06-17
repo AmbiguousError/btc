@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.5 -->
+    <!-- Version: 2.6 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -465,13 +465,13 @@
             let filteredPrices = []; // Data subset used for current simulation/optimization (based on date range)
 
             // These are now initialized once in the outer scope
-            let bestOptimumShortMA;
-            let bestOptimumLongMA;
-            let bestOptimumPerformance;
+            let bestOptimumShortMA_outer; // Renamed to clearly indicate outer scope
+            let bestOptimumLongMA_outer;  // Renamed
+            let bestOptimumPerformance_outer; // Renamed
 
-            let bestComprehensiveShortMA;
-            let bestComprehensiveLongMA;
-            let bestComprehensivePerformance;
+            let bestComprehensiveShortMA_outer; // Renamed
+            let bestComprehensiveLongMA_outer;  // Renamed
+            let bestComprehensivePerformance_outer; // Renamed
 
 
             // Set canvas dimensions
@@ -495,15 +495,15 @@
                 // Re-run simulations to redraw charts with new dimensions
                 runSimulation();
                 // Ensure optimum charts redraw if visible
-                if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
-                    const optimumShortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
-                    const optimumLongMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
-                    drawChart(optimumCtx, filteredPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance_outer) {
+                    const optimumShortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA_outer);
+                    const optimumLongMAValues = calculateSMA(filteredPrices, bestOptimumLongMA_outer);
+                    drawChart(optimumCtx, filteredPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance_outer.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
-                if (!comprehensiveOptimizationResults.classList.contains('hidden') && bestComprehensivePerformance) {
-                    const compShortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA);
-                    const compLongMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA);
-                    drawChart(comprehensiveOptimumCtx, filteredPrices, compShortMAValues, compLongMAValues, bestComprehensivePerformance.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, -1, -1, false, comprehensiveOptimumHoverInfoBox);
+                if (!comprehensiveOptimizationResults.classList.contains('hidden') && bestComprehensivePerformance_outer) {
+                    const compShortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA_outer);
+                    const compLongMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA_outer);
+                    drawChart(comprehensiveOptimumCtx, filteredPrices, compShortMAValues, compLongMAValues, bestComprehensivePerformance_outer.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, -1, -1, false, comprehensiveOptimumHoverInfoBox);
                 }
             });
 
@@ -1034,10 +1034,10 @@
                 optimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for optimum strategy...', 'info', optimizationMessageBox);
 
-                let currentBestProfit = -Infinity; // Local variable for the best profit in this run
-                let currentBestShortMA = 0; // Local variable to store best short MA in this run
-                let currentBestLongMA = 0; // Local variable to store best long MA in this run
-                let currentBestPerformance = null; // Local variable to store best performance in this run
+                let currentBestProfit_local = -Infinity; // Local variable for the best profit in this run
+                let currentBestShortMA_local = 0; // Local variable to store best short MA in this run
+                let currentBestLongMA_local = 0; // Local variable to store best long MA in this run
+                let currentBestPerformance_local = null; // Local variable to store best performance in this run
 
 
                 for (let shortPeriod = minShort; shortPeriod <= maxShort; shortPeriod++) {
@@ -1051,11 +1051,11 @@
 
                         const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > bestProfit) { // Compare with outer bestProfit
-                            bestProfit = performance.totalProfitLoss; // Assign to outer bestProfit
-                            currentBestShortMA = shortPeriod;
-                            currentBestLongMA = longPeriod;
-                            currentBestPerformance = performance;
+                        if (performance.totalProfitLoss > currentBestProfit_local) { // Compare with local bestProfit
+                            currentBestProfit_local = performance.totalProfitLoss; // Assign to local bestProfit
+                            currentBestShortMA_local = shortPeriod;
+                            currentBestLongMA_local = longPeriod;
+                            currentBestPerformance_local = performance;
                         }
                     }
                 }
@@ -1064,29 +1064,29 @@
                 optimizationResultsDiv.classList.remove('hidden');
 
                 // Assign local bests to the outer scope variables for redrawing on resize
-                bestOptimumShortMA = currentBestShortMA;
-                bestOptimumLongMA = currentBestLongMA;
-                bestOptimumPerformance = currentBestPerformance;
+                bestOptimumShortMA_outer = currentBestShortMA_local;
+                bestOptimumLongMA_outer = currentBestLongMA_local;
+                bestOptimumPerformance_outer = currentBestPerformance_local;
 
 
-                optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestOptimumShortMA}`;
-                optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestOptimumLongMA}`;
-                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
-                optimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
+                optimumShortMASpan.textContent = `Optimum Short MA Period: ${bestOptimumShortMA_outer}`;
+                optimumLongMASpan.textContent = `Optimum Long MA Period: ${bestOptimumLongMA_outer}`;
+                optimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit_local.toFixed(2)} USD`; // Use local variable for display
+                optimumProfitSpan.style.color = currentBestProfit_local >= 0 ? '#10b981' : '#ef4444';
 
-                if (bestOptimumPerformance) {
-                    optimumTotalTradesSpan.textContent = `Total completed trades: ${bestOptimumPerformance.tradesCount}`;
-                    optimumWinningTradesSpan.textContent = `Winning trades: ${bestOptimumPerformance.winningTrades}`;
-                    optimumLosingTradesSpan.textContent = `Losing trades: ${bestOptimumPerformance.losingTrades}`;
+                if (bestOptimumPerformance_outer) {
+                    optimumTotalTradesSpan.textContent = `Total completed trades: ${bestOptimumPerformance_outer.tradesCount}`;
+                    optimumWinningTradesSpan.textContent = `Winning trades: ${bestOptimumPerformance_outer.winningTrades}`;
+                    optimumLosingTradesSpan.textContent = `Losing trades: ${bestOptimumPerformance_outer.losingTrades}`;
                 } else {
                     optimumTotalTradesSpan.textContent = `Total completed trades: 0`;
                     optimumWinningTradesSpan.textContent = `Winning trades: 0`;
                     optimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount > 0) {
+                if (currentBestProfit_local <= 0 && bestOptimumPerformance_outer && bestOptimumPerformance_outer.tradesCount > 0) { // Use local bestProfit
                      showMessageBox(`Optimization complete. While trades were made, no net positive profit strategy was found within the tested ranges for this historical data. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', optimizationMessageBox);
-                } else if (bestProfit <= 0 && bestOptimumPerformance && bestOptimumPerformance.tradesCount === 0) {
+                } else if (currentBestProfit_local <= 0 && bestOptimumPerformance_outer && bestOptimumPerformance_outer.tradesCount === 0) { // Use local bestProfit
                      showMessageBox(`Optimization complete. No trades were made with any strategy within the tested ranges. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', optimizationMessageBox);
                 }
                 else {
@@ -1094,17 +1094,17 @@
                 }
 
                 // Draw the optimum chart
-                if (bestOptimumPerformance) {
-                    const optimumShortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
-                    const optimumLongMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
-                    drawChart(optimumCtx, filteredPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                if (bestOptimumPerformance_outer) {
+                    const optimumShortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA_outer);
+                    const optimumLongMAValues = calculateSMA(filteredPrices, bestOptimumLongMA_outer);
+                    drawChart(optimumCtx, filteredPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance_outer.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 } else {
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                 }
 
                 // Update main simulation inputs and run it with the optimum strategy (optional, but good for quick view)
-                shortMAPeriodInput.value = bestOptimumShortMA;
-                longMAPeriodInput.value = bestOptimumLongMA;
+                shortMAPeriodInput.value = bestOptimumShortMA_outer;
+                longMAPeriodInput.value = bestOptimumLongMA_outer;
                 runSimulation();
             }
 
@@ -1145,10 +1145,10 @@
                 comprehensiveOptimizationSpinner.style.display = 'block';
                 showMessageBox('Searching for comprehensive optimum strategy (this may take a moment)...', 'info', comprehensiveOptimizationMessageBox);
 
-                let bestProfit = -Infinity; // Local variable for the best profit in this run
-                let currentBestComprehensiveShortMA = 0;
-                let currentBestComprehensiveLongMA = 0;
-                let currentBestComprehensivePerformance = null;
+                let currentBestProfit_local = -Infinity; // Local variable for the best profit in this run
+                let currentBestComprehensiveShortMA_local = 0;
+                let currentBestComprehensiveLongMA_local = 0;
+                let currentBestComprehensivePerformance_local = null;
 
                 for (let shortPeriod = autoMinShort; shortPeriod <= autoMaxShort; shortPeriod++) {
                     for (let longPeriod = autoMinLong; longPeriod <= autoMaxLong; longPeriod++) {
@@ -1161,11 +1161,11 @@
 
                         const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                        if (performance.totalProfitLoss > bestProfit) { // Compare with outer bestProfit
-                            bestProfit = performance.totalProfitLoss; // Assign to outer bestProfit
-                            currentBestComprehensiveShortMA = shortPeriod;
-                            currentBestComprehensiveLongMA = longPeriod;
-                            currentBestComprehensivePerformance = performance;
+                        if (performance.totalProfitLoss > currentBestProfit_local) { // Compare with local bestProfit
+                            currentBestProfit_local = performance.totalProfitLoss; // Assign to local bestProfit
+                            currentBestComprehensiveShortMA_local = shortPeriod;
+                            currentBestComprehensiveLongMA_local = longPeriod;
+                            currentBestComprehensivePerformance_local = performance;
                         }
                     }
                 }
@@ -1174,29 +1174,29 @@
                 comprehensiveOptimizationResults.classList.remove('hidden');
 
                 // Assign local bests to the outer scope variables for redrawing on resize
-                bestComprehensiveShortMA = currentBestComprehensiveShortMA;
-                bestComprehensiveLongMA = currentBestComprehensiveLongMA;
-                bestComprehensivePerformance = currentBestComprehensivePerformance;
+                bestComprehensiveShortMA_outer = currentBestComprehensiveShortMA_local;
+                bestComprehensiveLongMA_outer = currentBestComprehensiveLongMA_local;
+                bestComprehensivePerformance_outer = currentBestComprehensivePerformance_local;
 
 
-                compOptimumShortMASpan.textContent = `Optimum Short MA Period: ${bestComprehensiveShortMA}`;
-                compOptimumLongMASpan.textContent = `Optimum Long MA Period: ${bestComprehensiveLongMA}`;
-                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${bestProfit.toFixed(2)} USD`;
-                compOptimumProfitSpan.style.color = bestProfit >= 0 ? '#10b981' : '#ef4444';
+                compOptimumShortMASpan.textContent = `Optimum Short MA Period: ${bestComprehensiveShortMA_outer}`;
+                compOptimumLongMASpan.textContent = `Optimum Long MA Period: ${bestComprehensiveLongMA_outer}`;
+                compOptimumProfitSpan.textContent = `Maximum Simulated Profit: $${currentBestProfit_local.toFixed(2)} USD`; // Use local bestProfit
+                compOptimumProfitSpan.style.color = currentBestProfit_local >= 0 ? '#10b981' : '#ef4444';
 
-                if (bestComprehensivePerformance) {
-                    compOptimumTotalTradesSpan.textContent = `Total completed trades: ${bestComprehensivePerformance.tradesCount}`;
-                    compOptimumWinningTradesSpan.textContent = `Winning trades: ${bestComprehensivePerformance.winningTrades}`;
-                    compOptimumLosingTradesSpan.textContent = `Losing trades: ${bestComprehensivePerformance.losingTrades}`;
+                if (bestComprehensivePerformance_outer) {
+                    compOptimumTotalTradesSpan.textContent = `Total completed trades: ${bestComprehensivePerformance_outer.tradesCount}`;
+                    compOptimumWinningTradesSpan.textContent = `Winning trades: ${bestComprehensivePerformance_outer.winningTrades}`;
+                    compOptimumLosingTradesSpan.textContent = `Losing trades: ${bestComprehensivePerformance_outer.losingTrades}`;
                 } else {
                     compOptimumTotalTradesSpan.textContent = `Total completed trades: 0`;
                     compOptimumWinningTradesSpan.textContent = `Winning trades: 0`;
                     compOptimumLosingTradesSpan.textContent = `Losing trades: 0`;
                 }
 
-                if (bestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount > 0) {
+                if (currentBestProfit_local <= 0 && bestComprehensivePerformance_outer && bestComprehensivePerformance_outer.tradesCount > 0) {
                      showMessageBox(`Comprehensive optimization complete. While trades were made, no net positive profit strategy was found. The displayed strategy represents the best outcome (least loss or break-even). This is common with simple strategies in complex markets.`, 'info', comprehensiveOptimizationMessageBox);
-                } else if (bestProfit <= 0 && bestComprehensivePerformance && bestComprehensivePerformance.tradesCount === 0) {
+                } else if (currentBestProfit_local <= 0 && bestComprehensivePerformance_outer && bestComprehensivePerformance_outer.tradesCount === 0) {
                      showMessageBox(`Comprehensive optimization complete. No trades were made with any strategy. This typically means the MA periods are too large for the data, or the price action was too flat for crossovers.`, 'info', comprehensiveOptimizationMessageBox);
                 }
                 else {
@@ -1204,17 +1204,17 @@
                 }
 
                 // Draw the comprehensive optimum chart
-                if (bestComprehensivePerformance) {
-                    const compShortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA);
-                    const compLongMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA);
-                    drawChart(comprehensiveOptimumCtx, filteredPrices, compShortMAValues, compLongMAValues, bestComprehensivePerformance.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, -1, -1, false, comprehensiveOptimumHoverInfoBox);
+                if (bestComprehensivePerformance_outer) {
+                    const compShortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA_outer);
+                    const compLongMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA_outer);
+                    drawChart(comprehensiveOptimumCtx, filteredPrices, compShortMAValues, compLongMAValues, bestComprehensivePerformance_outer.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, -1, -1, false, comprehensiveOptimumHoverInfoBox);
                 } else {
                     comprehensiveOptimumCtx.clearRect(0, 0, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height);
                 }
 
                 // Update main simulation inputs and run it with the comprehensive optimum strategy (optional)
-                shortMAPeriodInput.value = bestComprehensiveShortMA;
-                longMAPeriodInput.value = bestComprehensiveLongMA;
+                shortMAPeriodInput.value = bestComprehensiveShortMA_outer;
+                longMAPeriodInput.value = bestComprehensiveLongMA_outer;
                 runSimulation();
             }
 
@@ -1231,7 +1231,7 @@
                 // Show first 5 rows (oldest)
                 for (let i = 0; i < Math.min(numRowsToShow, 5); i++) {
                     const rowData = dataToDisplay[i];
-                    const row = dataPreviewTableBody.insertRow();
+                    const row = dataPreviewTableBody.insertCell();
                     const dateCell = row.insertCell();
                     const priceCell = row.insertCell();
                     dateCell.textContent = new Date(rowData.date).toLocaleDateString();
@@ -1325,20 +1325,20 @@
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
-                if (filteredPrices.length > 0 && bestOptimumPerformance) {
-                    const shortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
-                    const longMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
+                if (filteredPrices.length > 0 && bestOptimumPerformance_outer) {
+                    const shortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA_outer);
+                    const longMAValues = calculateSMA(filteredPrices, bestOptimumLongMA_outer);
 
-                    drawChart(optimumCtx, filteredPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, filteredPrices, shortMAValues, longMAValues, bestOptimumPerformance_outer.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
                 }
             });
 
             optimumChartCanvas.addEventListener('mouseout', () => {
-                if (filteredPrices.length > 0 && bestOptimumPerformance) {
-                    const shortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
-                    const longMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
+                if (filteredPrices.length > 0 && bestOptimumPerformance_outer) {
+                    const shortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA_outer);
+                    const longMAValues = calculateSMA(filteredPrices, bestOptimumLongMA_outer);
                     
-                    drawChart(optimumCtx, filteredPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, filteredPrices, shortMAValues, longMAValues, bestOptimumPerformance_outer.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
                 optimumHoverInfoBox.style.display = 'none';
             });
@@ -1349,20 +1349,20 @@
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
-                if (filteredPrices.length > 0 && bestComprehensivePerformance) {
-                    const shortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA);
-                    const longMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA);
+                if (filteredPrices.length > 0 && bestComprehensivePerformance_outer) {
+                    const shortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA_outer);
+                    const longMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA_outer);
 
-                    drawChart(comprehensiveOptimumCtx, filteredPrices, shortMAValues, longMAValues, bestComprehensivePerformance.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, mouseX, mouseY, false, comprehensiveOptimumHoverInfoBox);
+                    drawChart(comprehensiveOptimumCtx, filteredPrices, shortMAValues, longMAValues, bestComprehensivePerformance_outer.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, mouseX, mouseY, false, comprehensiveOptimumHoverInfoBox);
                 }
             });
 
             comprehensiveOptimumChartCanvas.addEventListener('mouseout', () => {
-                if (filteredPrices.length > 0 && bestComprehensivePerformance) {
-                    const shortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA);
-                    const longMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA);
+                if (filteredPrices.length > 0 && bestComprehensivePerformance_outer) {
+                    const shortMAValues = calculateSMA(filteredPrices, bestComprehensiveShortMA_outer);
+                    const longMAValues = calculateSMA(filteredPrices, bestComprehensiveLongMA_outer);
                     
-                    drawChart(comprehensiveOptimumCtx, filteredPrices, shortMAValues, longMAValues, bestComprehensivePerformance.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, -1, -1, false, comprehensiveOptimumHoverInfoBox);
+                    drawChart(comprehensiveOptimumCtx, filteredPrices, shortMAValues, longMAValues, bestComprehensivePerformance_outer.signals, comprehensiveOptimumChartCanvas.width, comprehensiveOptimumChartCanvas.height, -1, -1, false, comprehensiveOptimumHoverInfoBox);
                 }
                 comprehensiveOptimumHoverInfoBox.style.display = 'none';
             });
