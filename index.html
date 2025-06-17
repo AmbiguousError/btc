@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.0 -->
+    <!-- Version: 12.1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -44,6 +44,13 @@
         #rsiChartCanvas, #rsiFilteredRsiChartCanvas, #volumeChartCanvas, #filteredVolumeChartCanvas {
             aspect-ratio: 16 / 5;
             max-height: 150px;
+        }
+        #patternChartCanvas {
+            aspect-ratio: 16 / 9;
+            max-height: 250px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #fdfdfd;
         }
         .input-group { display: flex; flex-direction: column; gap: 8px; }
         .input-group label, .checkbox-group label { font-weight: 600; color: #4a5568; }
@@ -111,6 +118,13 @@
             margin-bottom: 1rem;
             font-size: 0.9rem;
             color: #4a5568;
+        }
+        .pattern-chart-container {
+            padding: 16px;
+            margin-top: 1rem;
+            background-color: #fdfdff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
         }
     </style>
 </head>
@@ -280,8 +294,21 @@
             <p>While this tool focuses on quantitative signals (mathematical calculations like moving averages), many traders combine this with qualitative analysis, such as identifying chart patterns. The theory is that since markets are driven by human psychology, emotional buying and selling can create recognizable, repeating shapes in the price chart.</p>
             
             <h4 class="text-lg font-semibold mt-4 mb-2">Classic Chart Patterns (Fractal Analysis)</h4>
-            <p>These are examples of recurring shapes that traders watch for:</p>
-            <ul class="list-disc pl-6 mt-1">
+            <p>These are examples of recurring shapes that traders watch for. Use the dropdown below to see an idealized visualization of each pattern.</p>
+             <div class="pattern-chart-container">
+                <label for="patternSelector" class="font-semibold text-gray-700">Visualize a Pattern:</label>
+                <select id="patternSelector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    <option value="headAndShoulders">Head and Shoulders</option>
+                    <option value="inverseHeadAndShoulders">Inverse Head and Shoulders</option>
+                    <option value="cupAndHandle">Cup and Handle</option>
+                    <option value="doubleTop">Double Top</option>
+                    <option value="doubleBottom">Double Bottom</option>
+                    <option value="ascendingTriangle">Ascending Triangle</option>
+                    <option value="descendingTriangle">Descending Triangle</option>
+                </select>
+                <canvas id="patternChartCanvas" class="mt-4"></canvas>
+            </div>
+            <ul class="list-disc pl-6 mt-4">
                 <li><strong>Head and Shoulders:</strong> A bearish pattern that can signal a trend reversal from up to down.</li>
                 <li><strong>Inverse Head and Shoulders:</strong> A bullish pattern suggesting a reversal from down to up.</li>
                 <li><strong>Cup and Handle:</strong> A bullish continuation pattern that often signals a consolidation period followed by an upward breakout.</li>
@@ -310,6 +337,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     let optimumStrategyData = null;
     let comprehensiveStrategyData = null;
     let defaultSettings = {};
+    const patternData = {
+        headAndShoulders: {
+            name: 'Head & Shoulders (Bearish Reversal)',
+            data: [20, 25, 30, 25, 40, 25, 30, 25, 20, 15, 10]
+        },
+        inverseHeadAndShoulders: {
+            name: 'Inverse Head & Shoulders (Bullish Reversal)',
+            data: [30, 25, 20, 25, 10, 25, 20, 25, 30, 35, 40]
+        },
+        cupAndHandle: {
+            name: 'Cup & Handle (Bullish Continuation)',
+            data: [40, 30, 20, 15, 13, 15, 20, 30, 40, 35, 37, 36, 45, 50]
+        },
+        doubleTop: {
+            name: 'Double Top (Bearish Reversal)',
+            data: [10, 20, 40, 20, 40, 20, 10]
+        },
+        doubleBottom: {
+            name: 'Double Bottom (Bullish Reversal)',
+            data: [40, 20, 10, 20, 10, 20, 40]
+        },
+        ascendingTriangle: {
+            name: 'Ascending Triangle (Bullish)',
+            data: [10, 30, 15, 30, 20, 30, 25, 30, 35, 40]
+        },
+        descendingTriangle: {
+            name: 'Descending Triangle (Bearish)',
+            data: [40, 10, 35, 10, 30, 10, 25, 10, 5, 0]
+        }
+    };
 
     // --- DOM Element Cache ---
     const elements = {
@@ -322,7 +379,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         filteredVolumeChartCanvas: document.getElementById('filteredVolumeChartCanvas'),
         optimumChartCanvas: document.getElementById('optimumChartCanvas'),
         comprehensiveOptimumChartCanvas: document.getElementById('comprehensiveOptimumChartCanvas'),
-        // Inputs
+        patternChartCanvas: document.getElementById('patternChartCanvas'),
+        // Inputs & Selectors
         startDate: document.getElementById('startDate'),
         endDate: document.getElementById('endDate'),
         initialInvestment: document.getElementById('initialInvestment'),
@@ -346,6 +404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxShortMA: document.getElementById('maxShortMA'),
         minLongMA: document.getElementById('minLongMA'),
         maxLongMA: document.getElementById('maxLongMA'),
+        patternSelector: document.getElementById('patternSelector'),
         // Buttons
         runSimulationBtn: document.getElementById('runSimulationBtn'),
         resetToDefaultsBtn: document.getElementById('resetToDefaultsBtn'),
@@ -582,6 +641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Charting ---
     function setupCanvas(canvas) {
+        if (!canvas) return { ctx: null, width: 0, height: 0 };
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
@@ -589,6 +649,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
         return { ctx, width: rect.width, height: rect.height };
+    }
+
+    function drawPatternChart(data, title) {
+        const canvas = elements.patternChartCanvas;
+        const { ctx, width, height } = setupCanvas(canvas);
+        ctx.clearRect(0, 0, width, height);
+        
+        if (!data || data.length === 0) return;
+
+        let min = Math.min(...data), max = Math.max(...data);
+        const padding = (max - min) * 0.2; // More padding for visual clarity
+        min -= padding;
+        max += padding;
+
+        const xScale = width / (data.length -1 || 1);
+        const yScale = height / (max - min || 1);
+        const getX = i => i * xScale;
+        const getY = price => height - ((price - min) * yScale);
+
+        // Draw line
+        const points = data.map((d, i) => ({ x: getX(i), y: getY(d) }));
+        drawDataLine(ctx, points, '#6366f1', 2);
+
+        // Draw Title
+        ctx.font = 'bold 14px Inter';
+        ctx.fillStyle = '#374151';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, width / 2, 20);
     }
 
     function drawChart(canvas, pricesData, shortMA, longMA, bb, signals, settings, hoverInfo) {
@@ -1161,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key will be handled by the environment
+            const apiKey = ""; // API Key will be handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -1200,7 +1288,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
         elements.resetToDefaultsBtn.addEventListener('click', setDefaults);
-
+        elements.patternSelector.addEventListener('change', () => {
+            const selectedPatternKey = elements.patternSelector.value;
+            const pattern = patternData[selectedPatternKey];
+            drawPatternChart(pattern.data, pattern.name);
+        });
         
         const createHoverListener = (container, redrawFn, getHoverBox) => {
              if (!container) return;
@@ -1243,7 +1335,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             runSimulation();
         }
         setupEventListeners();
-        window.addEventListener('resize', runSimulation);
+        window.addEventListener('resize', () => {
+            // Redraw all charts on resize
+            runSimulation();
+            const selectedPatternKey = elements.patternSelector.value;
+            const pattern = patternData[selectedPatternKey];
+            drawPatternChart(pattern.data, pattern.name);
+        });
+
+        // Initial draw for pattern chart
+        const initialPatternKey = elements.patternSelector.value;
+        const initialPattern = patternData[initialPatternKey];
+        drawPatternChart(initialPattern.data, initialPattern.name);
     }
 
     initialize();
