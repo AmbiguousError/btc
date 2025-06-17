@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 1.7 -->
+    <!-- Version: 1.8 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -46,7 +46,8 @@
             font-weight: 600;
             color: #4a5568;
         }
-        .input-group input {
+        .input-group input[type="number"],
+        .input-group input[type="date"] { /* Apply to date inputs as well */
             padding: 10px;
             border: 1px solid #cbd5e0;
             border-radius: 8px;
@@ -206,38 +207,25 @@
         .data-preview-table tbody tr:nth-child(odd) {
             background-color: #f8fafc;
         }
-
-
-        /* Responsive adjustments */
-        @media (min-width: 768px) {
-            .input-section {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: flex-end;
-            }
-            .input-group {
-                flex: 1;
-                max-width: 48%; /* Adjust for spacing */
-            }
+        .date-range-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+            align-items: flex-end;
         }
-        @media (max-width: 767px) {
-            .input-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .input-group {
-                width: 100%;
-            }
-            .input-group input {
-                width: 100%;
-            }
-            .btn-primary {
-                width: 100%;
-            }
-            .optimization-inputs {
-                flex-direction: column;
-            }
+        .date-range-section .input-group {
+            flex-grow: 1;
+            min-width: 150px;
+            max-width: 48%;
         }
+
+        /* Adjustments for labels and values on chart to avoid overlap */
+        canvas {
+            position: relative; /* Needed for positioning hover box */
+        }
+        /* Styling for axes labels is done in JS but general spacing here */
     </style>
 </head>
 <body>
@@ -262,6 +250,19 @@
                 The model only buys if it's not already in a position and only sells if it is currently holding a position.
             </p>
         </div>
+
+        <div class="date-range-section">
+            <div class="input-group">
+                <label for="startDate">Start Date:</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="input-group">
+                <label for="endDate">End Date:</label>
+                <input type="date" id="endDate">
+            </div>
+            <!-- Buttons are outside date-range-section, but these inputs affect them -->
+        </div>
+
 
         <div class="input-section flex flex-col md:flex-row gap-4 mb-6">
             <div class="input-group">
@@ -393,13 +394,19 @@
             const dataPreviewSection = document.getElementById('dataPreviewSection');
             const dataPreviewTableBody = document.getElementById('dataPreviewTableBody');
 
+            // Date Range elements
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+
 
             // Hover elements
             const hoverInfoBox = document.getElementById('hoverInfoBox');
             const optimumHoverInfoBox = document.getElementById('optimumHoverInfoBox');
 
 
-            let historicalPrices = [];
+            let historicalPrices = []; // All loaded data
+            let filteredPrices = []; // Data used for current simulation/optimization
+
 
             // Set canvas dimensions
             const CHART_HEIGHT = 400;
@@ -414,9 +421,10 @@
                 currentChartWidth = currentChartCanvas.offsetWidth;
                 currentChartCanvas.width = currentChartWidth;
                 optimumChartCanvas.width = currentChartWidth;
-                runSimulation();
+                runSimulation(); // Redraw current sim chart
+                // Re-draw optimum chart if results are visible
                 if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
-                    drawChart(optimumCtx, historicalPrices, calculateSMA(historicalPrices, bestOptimumShortMA), calculateSMA(historicalPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, filteredPrices, calculateSMA(filteredPrices, bestOptimumShortMA), calculateSMA(filteredPrices, bestOptimumLongMA), bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
             });
 
@@ -517,12 +525,28 @@
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
                 console.log('Historical Prices after parsing (first 5):', data.slice(0, 5)); // Debug: show first few items
-                return data; // Removed .reverse() here, as data should be chronological already
+                return data; // Data should already be chronological from source
             }
+
+            // --- Data Filtering by Date Range ---
+            function filterDataByDateRange(data, startDate, endDate) {
+                if (!startDate && !endDate) {
+                    return data; // No filtering if no dates are set
+                }
+
+                const startTimestamp = startDate ? new Date(startDate).getTime() : -Infinity;
+                const endTimestamp = endDate ? new Date(endDate).getTime() : Infinity;
+
+                return data.filter(point => {
+                    const pointDate = new Date(point.date).getTime();
+                    return pointDate >= startTimestamp && pointDate <= endTimestamp;
+                });
+            }
+
 
             // --- Technical Analysis Functions ---
             function calculateSMA(data, period) {
-                if (period <= 0 || period > data.length) {
+                if (period <= 0 || data.length === 0 || period > data.length) { // Added data.length === 0 check
                     return Array(data.length).fill(null);
                 }
                 const sma = [];
@@ -626,7 +650,7 @@
                     return;
                 }
 
-                const xScale = canvasWidth / (prices.length - 1);
+                const xScale = canvasWidth / (prices.length > 1 ? prices.length - 1 : 1); // Avoid division by zero if only one data point
                 const yScale = canvasHeight / priceRange;
 
                 const getY = (price) => canvasHeight - ((price - minPrice) * yScale);
@@ -838,11 +862,18 @@
                 const shortPeriod = parseInt(shortMAPeriodInput.value);
                 const longPeriod = parseInt(longMAPeriodInput.value);
 
+                // Filter historical data based on date range inputs
+                const startDate = startDateInput.value;
+                const endDate = endDateInput.value;
+                const filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate);
+
                 console.log('runSimulation started. shortPeriod:', shortPeriod, 'longPeriod:', longPeriod); // Debugging: log inputs
                 console.log('historicalPrices length:', historicalPrices.length); // Debugging: log data length
+                console.log('Filtered prices length:', filteredPrices.length); // Debugging: log filtered data length
 
-                if (historicalPrices.length === 0) {
-                    showMessageBox('No historical data loaded. Please ensure data is available.', 'error', messageBox);
+
+                if (filteredPrices.length === 0) {
+                    showMessageBox('No data available for the selected date range or data not loaded. Please adjust the date range or ensure data is available.', 'error', messageBox);
                     currentSimulationResultsDiv.classList.add('hidden');
                     currentCtx.clearRect(0, 0, currentChartCanvas.width, currentChartCanvas.height); // Clear chart on error
                     return;
@@ -861,18 +892,18 @@
                     return;
                 }
                 // Warn if not enough data for the selected MA periods
-                if (longPeriod > historicalPrices.length) {
+                if (longPeriod > filteredPrices.length) { // Use filteredPrices here
                      const requiredData = longPeriod;
-                     const availableData = historicalPrices.length;
-                     showMessageBox(`Not enough data for Long MA period ${longPeriod}. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust MA periods or provide more data.`, 'warning', dataLengthWarning); // Use general warning box
+                     const availableData = filteredPrices.length;
+                     showMessageBox(`Not enough data for Long MA period ${longPeriod} in the selected date range. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust MA periods or select a wider date range.`, 'warning', dataLengthWarning); // Use general warning box
                      currentSimulationResultsDiv.classList.add('hidden');
                      currentCtx.clearRect(0, 0, currentChartCanvas.width, currentChartCanvas.height);
                      return;
                 }
 
-                const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
-                const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
-                const longMAValues = calculateSMA(historicalPrices, longPeriod);
+                const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod); // Use filteredPrices
+                const shortMAValues = calculateSMA(filteredPrices, shortPeriod); // Use filteredPrices
+                const longMAValues = calculateSMA(filteredPrices, longPeriod); // Use filteredPrices
 
                 currentSimulationResultsDiv.classList.remove('hidden');
                 totalTradesSpan.textContent = `Total completed trades: ${performance.tradesCount}`;
@@ -881,7 +912,7 @@
                 simulatedProfitSpan.textContent = `Simulated Profit/Loss: $${performance.totalProfitLoss.toFixed(2)} USD (for 1 unit of BTC traded)`;
                 simulatedProfitSpan.style.color = performance.totalProfitLoss >= 0 ? '#10b981' : '#ef4444';
 
-                drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
+                drawChart(currentCtx, filteredPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
             }
 
             let bestOptimumShortMA = 0;
@@ -899,6 +930,11 @@
                 const minLong = parseInt(minLongMAInput.value);
                 const maxLong = parseInt(maxLongMAInput.value);
 
+                // Filter historical data based on date range inputs
+                const startDate = startDateInput.value;
+                const endDate = endDateInput.value;
+                const filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate);
+
                 if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
                     minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
                     showMessageBox('Please enter valid positive numbers for all optimization ranges.', 'error', optimizationMessageBox);
@@ -910,15 +946,15 @@
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
-                if (historicalPrices.length === 0) {
-                    showMessageBox('No historical data loaded for optimization. Please ensure data is available.', 'error', optimizationMessageBox);
+                if (filteredPrices.length === 0) { // Use filteredPrices here
+                    showMessageBox('No data available for the selected date range for optimization. Please adjust the date range or ensure data is available.', 'error', optimizationMessageBox);
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
-                if (maxLong > historicalPrices.length) {
+                if (maxLong > filteredPrices.length) { // Use filteredPrices here
                     const requiredData = maxLong;
-                    const availableData = historicalPrices.length;
-                    showMessageBox(`Optimization range's Max Long MA (${maxLong}) is too large. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust range.`, 'warning', optimizationMessageBox);
+                    const availableData = filteredPrices.length;
+                    showMessageBox(`Optimization range's Max Long MA (${maxLong}) is too large for the selected date range. You need at least ${requiredData} data points, but only ${availableData} are available. Adjust range or select a wider date range.`, 'warning', optimizationMessageBox);
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                     return;
                 }
@@ -936,11 +972,11 @@
                         if (shortPeriod >= longPeriod) {
                             continue;
                         }
-                        if (longPeriod > historicalPrices.length) {
+                        if (longPeriod > filteredPrices.length) { // Use filteredPrices here
                             continue;
                         }
 
-                        const currentPerformance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
+                        const currentPerformance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod); // Use filteredPrices
 
                         if (currentPerformance.totalProfitLoss > bestProfit) {
                             bestProfit = currentPerformance.totalProfitLoss;
@@ -980,9 +1016,9 @@
 
                 // Draw the optimum chart
                 if (bestOptimumPerformance) {
-                    const optimumShortMAValues = calculateSMA(historicalPrices, bestShortMA);
-                    const optimumLongMAValues = calculateSMA(historicalPrices, bestLongMA);
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                    const optimumShortMAValues = calculateSMA(filteredPrices, bestShortMA); // Use filteredPrices
+                    const optimumLongMAValues = calculateSMA(filteredPrices, bestLongMA); // Use filteredPrices
+                    drawChart(optimumCtx, filteredPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 } else {
                     optimumCtx.clearRect(0, 0, optimumChartCanvas.width, optimumChartCanvas.height);
                 }
@@ -990,31 +1026,41 @@
                 // Update main simulation inputs and run it with the optimum strategy (optional, but good for quick view)
                 shortMAPeriodInput.value = bestShortMA;
                 longMAPeriodInput.value = bestLongMA;
-                runSimulation();
+                runSimulation(); // This will update the main chart and its results
             }
 
-            // Path for the CSV file (using /__run__/resources/ for Canvas environment)
-            const csvFilePath = './btc-usd-max.csv'; // Updated file path
+            // Path for the CSV file
+            const csvFilePath = './btc-usd-max.csv';
 
             historicalPrices = await fetchCSV(csvFilePath);
 
-            // Display latest data info and preview table if loaded
+            // Set default date range if data is available
             if (historicalPrices.length > 0) {
+                // Set start date to roughly 1 year ago or the earliest data point if less than 1 year
+                const oneYearAgo = new Date();
+                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                
+                const firstDataDate = new Date(historicalPrices[0].date);
+                const lastDataDate = new Date(historicalPrices[historicalPrices.length - 1].date);
+
+                // Set default start date to max of (1 year ago or first data date)
+                startDateInput.value = (firstDataDate > oneYearAgo ? firstDataDate : oneYearAgo).toISOString().split('T')[0];
+                endDateInput.value = lastDataDate.toISOString().split('T')[0];
+
+
                 const latestData = historicalPrices[historicalPrices.length - 1];
-                latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`; // Changed currency unit and precision
+                latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
                 latestDataInfo.classList.remove('hidden');
 
-                // Populate data preview table
-                dataPreviewTableBody.innerHTML = ''; // Clear existing
+                dataPreviewTableBody.innerHTML = '';
                 const numPreviewRows = Math.min(historicalPrices.length, 10);
-                // Iterate backwards to show latest data at the top of the table
                 for (let i = historicalPrices.length - 1; i >= historicalPrices.length - numPreviewRows; i--) {
                     const rowData = historicalPrices[i];
                     const row = dataPreviewTableBody.insertRow();
                     const dateCell = row.insertCell();
                     const priceCell = row.insertCell();
                     dateCell.textContent = new Date(rowData.date).toLocaleDateString();
-                    priceCell.textContent = `$${rowData.price.toFixed(2)}`; // Changed currency unit and precision
+                    priceCell.textContent = `$${rowData.price.toFixed(2)}`;
                 }
                 dataPreviewSection.classList.remove('hidden');
             } else {
@@ -1032,26 +1078,26 @@
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
-                if (historicalPrices.length > 0) {
+                if (filteredPrices.length > 0) { // Use filteredPrices for rollover logic
                     const shortPeriod = parseInt(shortMAPeriodInput.value);
                     const longPeriod = parseInt(longMAPeriodInput.value);
-                    const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
-                    const longMAValues = calculateSMA(historicalPrices, longPeriod);
-                    const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
+                    const shortMAValues = calculateSMA(filteredPrices, shortPeriod);
+                    const longMAValues = calculateSMA(filteredPrices, longPeriod);
+                    const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
 
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true, hoverInfoBox);
+                    drawChart(currentCtx, filteredPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, mouseX, mouseY, true, hoverInfoBox);
                 }
             });
 
             currentChartCanvas.addEventListener('mouseout', () => {
-                if (historicalPrices.length > 0) {
+                if (filteredPrices.length > 0) { // Use filteredPrices
                     const shortPeriod = parseInt(shortMAPeriodInput.value);
                     const longPeriod = parseInt(longMAPeriodInput.value);
-                    const shortMAValues = calculateSMA(historicalPrices, shortPeriod);
-                    const longMAValues = calculateSMA(historicalPrices, longPeriod);
-                    const performance = calculateStrategyPerformance(historicalPrices, shortPeriod, longPeriod);
+                    const shortMAValues = calculateSMA(filteredPrices, shortPeriod);
+                    const longMAValues = calculateSMA(filteredPrices, longPeriod);
+                    const performance = calculateStrategyPerformance(filteredPrices, shortPeriod, longPeriod);
                     
-                    drawChart(currentCtx, historicalPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
+                    drawChart(currentCtx, filteredPrices, shortMAValues, longMAValues, performance.signals, currentChartCanvas.width, currentChartCanvas.height, -1, -1, true, hoverInfoBox);
                 }
                 hoverInfoBox.style.display = 'none';
             });
@@ -1062,20 +1108,20 @@
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
-                if (historicalPrices.length > 0 && bestOptimumPerformance) { // Only enable if optimization has run
-                    const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
-                    const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
+                if (filteredPrices.length > 0 && bestOptimumPerformance) { // Use filteredPrices
+                    const shortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
+                    const longMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
 
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, filteredPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
                 }
             });
 
             optimumChartCanvas.addEventListener('mouseout', () => {
-                if (historicalPrices.length > 0 && bestOptimumPerformance) {
-                    const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
-                    const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
+                if (filteredPrices.length > 0 && bestOptimumPerformance) { // Use filteredPrices
+                    const shortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
+                    const longMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
                     
-                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, filteredPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, -1, -1, false, optimumHoverInfoBox);
                 }
                 optimumHoverInfoBox.style.display = 'none';
             });
