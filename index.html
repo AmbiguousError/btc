@@ -1001,7 +1001,7 @@
                     const shortMAValues = calculateSMA(historicalPrices, bestOptimumShortMA);
                     const longMAValues = calculateSMA(historicalPrices, bestOptimumLongMA);
 
-                    drawChart(optimumCtx, historicalPrices, shortMAValues, longMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
+                    drawChart(optimumCtx, historicalPrices, optimumShortMAValues, optimumLongMAValues, bestOptimumPerformance.signals, optimumChartCanvas.width, optimumChartCanvas.height, mouseX, mouseY, false, optimumHoverInfoBox);
                 }
             });
 
