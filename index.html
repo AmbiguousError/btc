@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 3.7 -->
+    <!-- Version: 3.8 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with RSI and Optimization</title>
@@ -74,6 +74,7 @@
         .data-preview-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: left; }
         .data-preview-table th, .data-preview-table td { border: 1px solid #e2e8f0; padding: 8px 12px; }
         .data-preview-table th { background-color: #e9eef4; font-weight: 600; color: #4a5568; }
+        .data-preview-table tfoot td { font-weight: bold; background-color: #e0f2fe; }
     </style>
 </head>
 <body>
@@ -183,6 +184,8 @@
                             </thead>
                             <tbody id="comprehensiveTradesTableBody">
                             </tbody>
+                             <tfoot id="comprehensiveTradesTableFooter">
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -246,6 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comprehensiveOptimumStrategyChartSection: document.getElementById('comprehensiveOptimumStrategyChartSection'),
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
         comprehensiveTradesTableBody: document.getElementById('comprehensiveTradesTableBody'),
+        comprehensiveTradesTableFooter: document.getElementById('comprehensiveTradesTableFooter'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
@@ -716,7 +720,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(isComprehensive){
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals, rsi, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.signals);
-                renderTradesTable(bestPerf.signals, filteredPrices);
+                renderTradesTable(bestPerf, settings);
             } else {
                 optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, signals: bestPerf.signals, rsi, settings: {...settings, shortPeriod: bestShort, longPeriod: bestLong}};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.signals);
@@ -728,8 +732,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 10);
     }
     
-    function renderTradesTable(signals, pricesData) {
+    function renderTradesTable(perf, settings) {
+        const signals = perf.signals;
+        const pricesData = filteredPrices;
         elements.comprehensiveTradesTableBody.innerHTML = '';
+        elements.comprehensiveTradesTableFooter.innerHTML = '';
         const trades = [];
         let buySignal = null;
         for (const signal of signals) {
@@ -742,7 +749,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if(trades.length > 0){
+            let totalGrossProfit = 0;
             trades.forEach(trade => {
+                totalGrossProfit += trade.sell.grossProfit;
                 const row = elements.comprehensiveTradesTableBody.insertRow();
                 row.insertCell().textContent = new Date(pricesData[trade.buy.index].date).toLocaleDateString();
                 row.insertCell().textContent = `${trade.buy.btc.toFixed(6)}`;
@@ -751,6 +760,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 grossCell.textContent = `$${trade.sell.grossProfit.toFixed(2)}`;
                 grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
             });
+            
+            const fee = totalGrossProfit > 0 ? totalGrossProfit * (settings.serviceFee / 100) : 0;
+            const taxableProfit = totalGrossProfit > 0 ? totalGrossProfit - fee : 0;
+            const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
+            const netProfit = totalGrossProfit - fee - tax;
+
+            const footerRow = elements.comprehensiveTradesTableFooter.insertRow();
+            footerRow.insertCell().colSpan = 3;
+            footerRow.insertCell().innerHTML = `
+                <div class="text-right">
+                    <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${totalGrossProfit.toFixed(2)}</span></p>
+                    <p>Service Fees: <span class="text-red-600">-$${fee.toFixed(2)}</span></p>
+                    <p>Tax on Gains: <span class="text-red-600">-$${tax.toFixed(2)}</span></p>
+                    <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${netProfit.toFixed(2)}</span></p>
+                </div>
+            `;
+            
             elements.comprehensiveTradesTableContainer.classList.remove('hidden');
         } else {
             elements.comprehensiveTradesTableContainer.classList.add('hidden');
