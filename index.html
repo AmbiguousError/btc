@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 3.4 -->
+    <!-- Version: 3.4 (Patched) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with RSI and Optimization</title>
@@ -661,6 +661,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         
         const createHoverListener = (container, redrawFn, getHoverBox) => {
+             if (!container) { return; } // BUG FIX: Ensure container exists
              container.addEventListener('mousemove', e => {
                 const rect = container.querySelector('canvas').getBoundingClientRect();
                 redrawFn({x: e.clientX - rect.left, y: e.clientY - rect.top});
@@ -677,8 +678,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, () => elements.hoverInfoBox);
         
         createHoverListener(elements.rsiFilteredSimulationSection, (hover) => {
-            // The main runSimulation already handles redrawing this chart.
-            // We just need to trigger it.
             runSimulation(hover);
         }, () => elements.rsiFilteredHoverInfoBox);
 
