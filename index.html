@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 2.0 -->
+    <!-- Version: 2.1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier</title>
@@ -207,25 +207,38 @@
         .data-preview-table tbody tr:nth-child(odd) {
             background-color: #f8fafc;
         }
-        .date-range-section {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-bottom: 20px;
-            justify-content: center;
-            align-items: flex-end;
-        }
-        .date-range-section .input-group {
-            flex-grow: 1;
-            min-width: 150px;
-            max-width: 48%;
-        }
 
-        /* Adjustments for labels and values on chart to avoid overlap */
-        canvas {
-            position: relative; /* Needed for positioning hover box */
+
+        /* Responsive adjustments */
+        @media (min-width: 768px) {
+            .input-section {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: flex-end;
+            }
+            .input-group {
+                flex: 1;
+                max-width: 48%; /* Adjust for spacing */
+            }
         }
-        /* Styling for axes labels is done in JS but general spacing here */
+        @media (max-width: 767px) {
+            .input-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-group {
+                width: 100%;
+            }
+            .input-group input {
+                width: 100%;
+            }
+            .btn-primary {
+                width: 100%;
+            }
+            .optimization-inputs {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
@@ -279,7 +292,7 @@
         <p id="latestDataInfo" class="data-info hidden"></p>
 
         <div id="dataPreviewSection" class="results-box hidden">
-            <h3>Latest 10 Data Points from CSV:</h3>
+            <h3>Data Preview for Selected Range:</h3> <!-- Updated title -->
             <table class="data-preview-table">
                 <thead>
                     <tr>
@@ -451,8 +464,10 @@
             let historicalPrices = []; // All loaded data (raw)
             let filteredPrices = []; // Data subset used for current simulation/optimization (based on date range)
 
-            let minOverallPrice = Infinity; // To store overall min price for Y-axis scaling across all data
-            let overallPriceRange = 0;    // To store overall price range for Y-axis scaling across all data
+            // Removed minOverallPrice and overallPriceRange as charts now scale to filtered data
+            // let minOverallPrice = Infinity; 
+            // let overallPriceRange = 0;    
+
 
             let bestOptimumShortMA = 0; // Stored for redraw on resize (manual opt)
             let bestOptimumLongMA = 0;  // Stored for redraw on resize (manual opt)
@@ -483,6 +498,7 @@
 
                 // Re-run simulations to redraw charts with new dimensions
                 runSimulation();
+                // Ensure optimum charts redraw if visible
                 if (!optimizationResultsDiv.classList.contains('hidden') && bestOptimumPerformance) {
                     const optimumShortMAValues = calculateSMA(filteredPrices, bestOptimumShortMA);
                     const optimumLongMAValues = calculateSMA(filteredPrices, bestOptimumLongMA);
@@ -549,7 +565,7 @@
 
             function parseCSV(csvText) {
                 const lines = csvText.trim().split('\n');
-                if (lines.length < 2) { // Changed to 2 because this CSV starts with headers directly
+                if (lines.length < 2) { 
                     showMessageBox('CSV file is empty or has insufficient data rows after header.', 'error', messageBox);
                     return [];
                 }
@@ -557,10 +573,9 @@
                 // Headers are on the first line (index 0)
                 const rawHeaders = lines[0].split(','); // Delimiter is comma
                 const headers = rawHeaders.map(h => h.trim().replace(/"/g, ''));
-                console.log('Raw headers line:', lines[0]); // Debug: see raw headers line
-                console.log('Headers after trimming and unquoting:', headers); // Debug: check processed headers
+                console.log('Raw headers line:', lines[0]);
+                console.log('Headers after trimming and unquoting:', headers);
 
-                // Updated to match "price" and "snapped_at"
                 const closePriceIndex = headers.indexOf('price'); 
                 const dateIndex = headers.indexOf('snapped_at');
 
@@ -574,8 +589,8 @@
 
                 const data = [];
                 // Start iterating from the second line for actual data (index 1)
-                for (let i = 1; i < lines.length; i++) { // Adjusted loop start
-                    const columns = lines[i].split(','); // Delimiter is comma
+                for (let i = 1; i < lines.length; i++) {
+                    const columns = lines[i].split(',');
                     const closePrice = columns[closePriceIndex] ? parseFloat(columns[closePriceIndex]) : NaN;
                     const date = columns[dateIndex] ? columns[dateIndex].replace(/"/g, '') : '';
 
@@ -584,8 +599,6 @@
                             price: closePrice,
                             date: date
                         });
-                    } else {
-                        // console.log(`Skipped row ${i} due to NaN closePrice: ${columns[closePriceIndex]}`);
                     }
                 }
                 console.log('CSV parsed. Number of data points:', data.length);
@@ -715,7 +728,7 @@
                     return;
                 }
 
-                const xScale = canvasWidth / (prices.length > 1 ? prices.length - 1 : 1);
+                const xScale = canvasWidth / (prices.length > 1 ? prices.length - 1 : 1); // Avoid division by zero if only one data point
                 const yScale = canvasHeight / chartPriceRange;
 
                 const getY = (price) => canvasHeight - ((price - minChartPrice) * yScale);
@@ -933,6 +946,10 @@
                 console.log('Filtered prices length:', filteredPrices.length);
 
 
+                // Update data preview table based on filtered prices
+                updateDataPreviewTable(filteredPrices);
+
+
                 if (filteredPrices.length === 0) {
                     showMessageBox('No data available for the selected date range or data not loaded. Please adjust the date range or ensure data is available.', 'error', messageBox);
                     currentSimulationResultsDiv.classList.add('hidden');
@@ -998,6 +1015,10 @@
                 const endDate = endDateInput.value;
                 filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate);
 
+                // Update data preview table based on filtered prices for optimization context
+                updateDataPreviewTable(filteredPrices);
+
+
                 if (isNaN(minShort) || isNaN(maxShort) || isNaN(minLong) || isNaN(maxLong) ||
                     minShort <= 0 || maxShort <= 0 || minLong <= 0 || maxLong <= 0) {
                     showMessageBox('Please enter valid positive numbers for all optimization ranges.', 'error', optimizationMessageBox);
@@ -1026,9 +1047,9 @@
                 showMessageBox('Searching for optimum strategy...', 'info', optimizationMessageBox);
 
                 let bestProfit = -Infinity;
-                bestShortMA = 0; // Reset for this specific opt
-                bestLongMA = 0;  // Reset for this specific opt
-                bestOptimumPerformance = null; // Reset for this specific opt
+                bestShortMA = 0;
+                bestLongMA = 0;
+                bestOptimumPerformance = null;
 
 
                 for (let shortPeriod = minShort; shortPeriod <= maxShort; shortPeriod++) {
@@ -1097,11 +1118,15 @@
             async function findComprehensiveOptimumStrategy() {
                 hideMessageBox(comprehensiveOptimizationMessageBox);
                 comprehensiveOptimizationResults.classList.add('hidden');
-                dataLengthWarning.classList.add('hidden'); // Hide general warning
+                dataLengthWarning.classList.add('hidden');
 
                 const startDate = startDateInput.value;
                 const endDate = endDateInput.value;
                 filteredPrices = filterDataByDateRange(historicalPrices, startDate, endDate);
+
+                // Update data preview table based on filtered prices for comprehensive optimization context
+                updateDataPreviewTable(filteredPrices);
+
 
                 if (filteredPrices.length === 0) {
                     showMessageBox('No data available for the selected date range for comprehensive optimization. Please adjust the date range or ensure data is available.', 'error', comprehensiveOptimizationMessageBox);
@@ -1111,9 +1136,9 @@
 
                 // Automatically determine sensible ranges
                 const autoMinShort = 2;
-                const autoMaxShort = Math.min(30, Math.floor(filteredPrices.length / 5)); // Cap short MA to 30 or 1/5th of data length
+                const autoMaxShort = Math.min(30, Math.floor(filteredPrices.length / 5));
                 const autoMinLong = 3;
-                const autoMaxLong = Math.min(100, filteredPrices.length - 1); // Cap long MA to 100 or data length - 1
+                const autoMaxLong = Math.min(100, filteredPrices.length - 1);
 
 
                 if (autoMaxShort < autoMinShort || autoMaxLong < autoMinLong || autoMaxShort >= autoMinLong) {
@@ -1193,49 +1218,73 @@
                 runSimulation();
             }
 
+            // Function to update the data preview table
+            function updateDataPreviewTable(dataToDisplay) {
+                dataPreviewTableBody.innerHTML = ''; // Clear existing
+                if (dataToDisplay.length === 0) {
+                    dataPreviewSection.classList.add('hidden');
+                    return;
+                }
 
-            // Path for the CSV file
-            const csvFilePath = './btc-usd-max.csv';
-
-            historicalPrices = await fetchCSV(csvFilePath);
-
-            // Calculate overall min/max prices from the entire historical dataset for consistent Y-axis scaling
-            if (historicalPrices.length > 0) {
-                const allPrices = historicalPrices.map(d => d.price);
-                minOverallPrice = Math.min(...allPrices);
-                maxOverallPrice = Math.max(...allPrices);
-                overallPriceRange = maxOverallPrice - minOverallPrice;
-            }
-
-
-            // Set default date range if data is available
-            if (historicalPrices.length > 0) {
-                const firstDataDate = new Date(historicalPrices[0].date);
-                const lastDataDate = new Date(historicalPrices[historicalPrices.length - 1].date);
-
-                startDateInput.value = firstDataDate.toISOString().split('T')[0];
-                endDateInput.value = lastDataDate.toISOString().split('T')[0];
-
-
-                const latestData = historicalPrices[historicalPrices.length - 1];
-                latestDataInfo.textContent = `Latest Data: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
-                latestDataInfo.classList.remove('hidden');
-
-                dataPreviewTableBody.innerHTML = '';
-                const numPreviewRows = Math.min(historicalPrices.length, 10);
-                for (let i = historicalPrices.length - 1; i >= historicalPrices.length - numPreviewRows; i--) {
-                    const rowData = historicalPrices[i];
+                const numRowsToShow = Math.min(dataToDisplay.length, 10);
+                
+                // Show first 5 rows (oldest)
+                for (let i = 0; i < Math.min(numRowsToShow, 5); i++) {
+                    const rowData = dataToDisplay[i];
                     const row = dataPreviewTableBody.insertRow();
                     const dateCell = row.insertCell();
                     const priceCell = row.insertCell();
                     dateCell.textContent = new Date(rowData.date).toLocaleDateString();
                     priceCell.textContent = `$${rowData.price.toFixed(2)}`;
                 }
+
+                // Add separator row if there are more than 10 rows
+                if (dataToDisplay.length > 10) {
+                    const separatorRow = dataPreviewTableBody.insertRow();
+                    const separatorCell = separatorRow.insertCell();
+                    separatorCell.colSpan = 2;
+                    separatorCell.textContent = '... (more data) ...';
+                    separatorCell.style.textAlign = 'center';
+                    separatorCell.style.fontStyle = 'italic';
+                    separatorCell.style.color = '#6b7280';
+                }
+
+                // Show last 5 rows (most recent)
+                if (numRowsToShow > 5 || (numRowsToShow <=5 && dataToDisplay.length > numRowsToShow)) { // Only show last 5 if there's enough data to distinguish, or if total is small
+                    const startLastFive = Math.max(0, dataToDisplay.length - 5);
+                    for (let i = startLastFive; i < dataToDisplay.length; i++) {
+                         // Avoid re-adding if already shown in first 5 and total is <= 10
+                        if (dataToDisplay.length <= 10 && i < 5) continue; 
+
+                        const rowData = dataToDisplay[i];
+                        const row = dataPreviewTableBody.insertRow();
+                        const dateCell = row.insertCell();
+                        const priceCell = row.insertCell();
+                        dateCell.textContent = new Date(rowData.date).toLocaleDateString();
+                        priceCell.textContent = `$${rowData.price.toFixed(2)}`;
+                    }
+                }
+                
                 dataPreviewSection.classList.remove('hidden');
-            } else {
-                latestDataInfo.classList.add('hidden');
-                dataPreviewSection.classList.add('hidden');
+
+                 // Update latestDataInfo based on filtered data
+                if (filteredPrices.length > 0) {
+                    const latestData = filteredPrices[filteredPrices.length - 1];
+                    latestDataInfo.textContent = `Latest Data in Range: Date ${new Date(latestData.date).toLocaleDateString()}, Price $${latestData.price.toFixed(2)} USD`;
+                    latestDataInfo.classList.remove('hidden');
+                } else {
+                    latestDataInfo.classList.add('hidden');
+                }
             }
+
+
+            // Path for the CSV file
+            const csvFilePath = './btc-usd-max.csv';
+
+            historicalPrices = await fetchCSV(csvFilePath);
+
+            // Initial display of latest data info and preview table
+            updateDataPreviewTable(historicalPrices); // Show for full historical data initially
 
 
             runSimulationBtn.addEventListener('click', runSimulation);
