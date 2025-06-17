@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 7.4 v2 -->
+    <!-- Version: 9.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
     <!-- Tailwind CSS CDN -->
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -59,6 +59,12 @@
             box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
         }
         .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); }
+        .btn-secondary {
+            background-color: #64748b;
+        }
+        .btn-secondary:hover {
+             background-color: #475569;
+        }
         .btn-ai {
             background-color: #8b5cf6; /* A nice purple */
         }
@@ -80,7 +86,6 @@
         .data-preview-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: left; }
         .data-preview-table th, .data-preview-table td { border: 1px solid #e2e8f0; padding: 8px 12px; }
         .data-preview-table th { background-color: #e9eef4; font-weight: 600; color: #4a5568; }
-        .data-preview-table tfoot td { font-weight: bold; background-color: #e0f2fe; }
         .ai-analysis-box {
             background-color: #f0f9ff;
             border: 1px solid #bae6fd;
@@ -130,11 +135,17 @@
         </div>
 
         <div class="border-t border-gray-200 pt-6">
-             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Strategy Parameters</h2>
+             <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Strategy Parameters</h2>
+                <div class="flex gap-2">
+                    <button id="getAISuggestionsBtn" class="btn-primary btn-ai text-sm">✨ Get AI Suggestions</button>
+                    <button id="resetToDefaultsBtn" class="btn-primary btn-secondary text-sm">Reset</button>
+                </div>
+            </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="input-group"><label for="initialInvestment">Initial Investment ($):</label><input type="number" id="initialInvestment" value="100" min="1"></div>
                 <div class="input-group"><label for="taxRate">Tax Rate (%):</label><input type="number" id="taxRate" value="28" min="0" max="100"></div>
-                <div class="input-group"><label for="serviceFee">Service Fee (%):</label><input type="number" id="serviceFee" value="0.1" min="0" max="10" step="0.1"></div>
+                <div class="input-group"><label for="serviceFee">Service Fee (%):</label><input type="number" id="serviceFee" value="5" min="0" max="10" step="0.1"></div>
                 <div class="input-group"><label for="shortMA">Short MA Period:</label><input type="number" id="shortMA" value="2" min="2"></div>
                 <div class="input-group"><label for="longMA">Long MA Period:</label><input type="number" id="longMA" value="5" min="3"></div>
                 <div class="input-group"><label for="rsiPeriod">RSI Period:</label><input type="number" id="rsiPeriod" value="14" min="2"></div>
@@ -228,11 +239,10 @@
                             </thead>
                             <tbody id="comprehensiveTradesTableBody">
                             </tbody>
-                             <tfoot id="comprehensiveTradesTableFooter">
-                            </tfoot>
                         </table>
                     </div>
                 </div>
+                 <div id="comprehensiveTradesSummaryContainer" class="results-box mt-4 hidden"></div>
             </div>
         </div>
     </div>
@@ -246,6 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let rsiFilteredStrategyData = null;
     let optimumStrategyData = null;
     let comprehensiveStrategyData = null;
+    let defaultSettings = {};
 
     // --- DOM Element Cache ---
     const elements = {
@@ -284,6 +295,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxLongMA: document.getElementById('maxLongMA'),
         // Buttons
         runSimulationBtn: document.getElementById('runSimulationBtn'),
+        getAISuggestionsBtn: document.getElementById('getAISuggestionsBtn'),
+        resetToDefaultsBtn: document.getElementById('resetToDefaultsBtn'),
         findOptimumBtn: document.getElementById('findOptimumBtn'),
         findComprehensiveOptimumBtn: document.getElementById('findComprehensiveOptimumBtn'),
         // Spinners
@@ -303,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comprehensiveOptimumStrategyChartSection: document.getElementById('comprehensiveOptimumStrategyChartSection'),
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
         comprehensiveTradesTableBody: document.getElementById('comprehensiveTradesTableBody'),
-        comprehensiveTradesTableFooter: document.getElementById('comprehensiveTradesTableFooter'),
+        comprehensiveTradesSummaryContainer: document.getElementById('comprehensiveTradesSummaryContainer'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
@@ -887,6 +900,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         setTimeout(() => {
             let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
+            let bestSettings = {};
             const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
             const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
             const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
@@ -900,12 +914,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                         hideSpinner(spinner);
                         return;
                     }
-                    for (let short = 2; short <= maxShortComprehensive; short++) {
-                        for (let long = short + 1; long <= maxLongComprehensive; long++) {
-                            runTest(short, long);
+
+                    // Loop through all 16 combinations of filters
+                    for (let i = 0; i < 16; i++) {
+                        const currentFilterSettings = {
+                            useSLTP: (i & 8) > 0,
+                            useRsiFilter: (i & 4) > 0,
+                            useBBFilter: (i & 2) > 0,
+                            useVolumeFilter: (i & 1) > 0,
+                        };
+
+                        for (let short = 2; short <= maxShortComprehensive; short++) {
+                            for (let long = short + 1; long <= maxLongComprehensive; long++) {
+                                runTest(short, long, currentFilterSettings);
+                            }
                         }
                     }
-                } else {
+
+                } else { // Manual Optimization
                     const minShort = parseInt(elements.minShortMA.value);
                     const maxShort = parseInt(elements.maxShortMA.value);
                     const minLong = parseInt(elements.minLongMA.value);
@@ -918,18 +944,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     for (let short = minShort; short <= maxShort; short++) {
                         for (let long = minLong; long <= maxLong; long++) {
                             if (short >= long) continue;
-                            runTest(short, long);
+                            runTest(short, long, settings); // Use UI settings for manual
                         }
                     }
                 }
             }
 
-            const runTest = (short, long) => {
+            const runTest = (short, long, filterSettings) => {
+                const testSettings = { ...settings, ...filterSettings, shortPeriod: short, longPeriod: long };
                 const shortMA = calculateSMA(filteredPrices, short, 'price');
                 const longMA = calculateSMA(filteredPrices, long, 'price');
-                const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, {...settings, shortPeriod: short, longPeriod: long});
+                const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, testSettings);
                 if (perf.finalValue > bestPerf.finalValue) {
-                    bestPerf = perf; bestShort = short; bestLong = long;
+                    bestPerf = perf; 
+                    bestShort = short; 
+                    bestLong = long;
+                    bestSettings = testSettings;
                 }
             };
             
@@ -938,9 +968,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             hideSpinner(spinner);
             const netProfit = bestPerf.finalValue - settings.initialInvestment;
             const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
+            
+            let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => k.replace('use', '')).join(', ');
+            if(!enabledFilters) enabledFilters = "None";
+
             showResults(container, `
                 <h3>Optimum Strategy Found:</h3>
                 <p>Short MA: ${bestShort}, Long MA: ${bestLong}</p>
+                <p>Enabled Filters: <span class="font-semibold">${enabledFilters}</span></p>
+                <hr class="my-2 border-gray-300">
                 <p>Final Value: <span class="font-bold">$${formatNumber(bestPerf.finalValue)}</span></p>
                 <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
             `);
@@ -950,21 +986,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             chartSection.classList.remove('hidden');
             const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
             const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
-            const optimumSettings = {...settings, shortPeriod: bestShort, longPeriod: bestLong};
-
+            
             if(isComprehensive){
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings, performance: bestPerf};
+                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
-                renderTradesTable(bestPerf, settings);
+                renderTradesTable(bestPerf, bestSettings);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: optimumSettings};
+                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings);
             }
 
             elements.shortMA.value = bestShort;
             elements.longMA.value = bestLong;
+            Object.keys(bestSettings).forEach(key => {
+                if(elements[key] && elements[key].type === 'checkbox') {
+                    elements[key].checked = bestSettings[key];
+                }
+            });
+
             runSimulation();
         }, 10);
     }
@@ -973,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const signals = perf.signals;
         const pricesData = filteredPrices;
         elements.comprehensiveTradesTableBody.innerHTML = '';
-        elements.comprehensiveTradesTableFooter.innerHTML = '';
+        
         const trades = [];
         let buySignal = null;
         for (const signal of signals) {
@@ -984,6 +1025,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 buySignal = null;
             }
         }
+
+        elements.comprehensiveTradesTableContainer.classList.toggle('hidden', trades.length === 0);
+        elements.comprehensiveTradesSummaryContainer.classList.toggle('hidden', trades.length === 0);
 
         if(trades.length > 0){
             let totalGrossProfit = 0;
@@ -1003,20 +1047,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
             const netProfit = totalGrossProfit - fee - tax;
 
-            const footerRow = elements.comprehensiveTradesTableFooter.insertRow();
-            footerRow.insertCell().colSpan = 3;
-            footerRow.insertCell().innerHTML = `
-                <div class="text-right">
-                    <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(totalGrossProfit)}</span></p>
-                    <p>Service Fees: <span class="text-red-600">-$${formatNumber(fee)}</span></p>
-                    <p>Tax on Gains: <span class="text-red-600">-$${formatNumber(tax)}</span></p>
-                    <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
-                </div>
+            const summaryHTML = `
+                <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Summary:</h4>
+                <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(totalGrossProfit)}</span></p>
+                <p>Service Fees: <span class="text-red-600">-$${formatNumber(fee)}</span></p>
+                <p>Tax on Gains: <span class="text-red-600">-$${formatNumber(tax)}</span></p>
+                <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
             `;
-            
-            elements.comprehensiveTradesTableContainer.classList.remove('hidden');
-        } else {
-            elements.comprehensiveTradesTableContainer.classList.add('hidden');
+            showResults(elements.comprehensiveTradesSummaryContainer, summaryHTML);
         }
     }
     
@@ -1031,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
         resultBox.classList.remove('hidden');
 
-        const { finalValue, preTaxFinalValue } = performance;
+        const { finalValue } = performance;
         const netProfit = finalValue - settings.initialInvestment;
         const numTrades = performance.signals.filter(s => s.type === 'sell').length;
 
@@ -1082,7 +1120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
                 let text = result.candidates[0].content.parts[0].text;
-                // Clean the response to remove markdown code fences
                 text = text.replace(/```html|```/g, '');
                 resultBox.innerHTML = `<h4>✨ AI Strategy Analysis</h4>${text}`;
             } else {
@@ -1093,6 +1130,109 @@ document.addEventListener('DOMContentLoaded', async () => {
             resultBox.innerHTML = `<p class="text-red-500">An error occurred while analyzing the strategy. Please check the console for details.</p>`;
         }
     }
+    
+    function setDefaults() {
+        Object.keys(defaultSettings).forEach(key => {
+            if(elements[key] && elements[key].type === 'checkbox') {
+                elements[key].checked = defaultSettings[key];
+            } else if (elements[key]) {
+                elements[key].value = defaultSettings[key];
+            }
+        });
+        runSimulation();
+    }
+    
+    async function getAISuggestions() {
+        const btn = elements.getAISuggestionsBtn;
+        btn.innerHTML = '<div class="loading-spinner" style="display: inline-block; border-top-color: white;"></div>';
+        btn.disabled = true;
+        
+        const recentData = filteredPrices.slice(-30);
+        let context = "Suggest a set of parameters for a BTC/USD trading strategy.";
+        if(recentData.length > 1) {
+            const startPrice = recentData[0].price;
+            const endPrice = recentData[recentData.length - 1].price;
+            const trend = endPrice > startPrice ? 'uptrend' : 'downtrend';
+            context += ` The market has been in a general ${trend} over the last 30 days, moving from approximately $${Math.round(startPrice)} to $${Math.round(endPrice)}.`;
+        }
+         context += " Provide a balanced strategy. The short MA must be less than the long MA.";
+
+
+        const schema = {
+            type: "OBJECT",
+            properties: {
+                "shortMA": { "type": "INTEGER" },
+                "longMA": { "type": "INTEGER" },
+                "rsiPeriod": { "type": "INTEGER" },
+                "rsiOverbought": { "type": "INTEGER" },
+                "rsiOversold": { "type": "INTEGER" },
+                "bbPeriod": { "type": "INTEGER" },
+                "bbStdDev": { "type": "NUMBER" },
+                "volumeMAPeriod": { "type": "INTEGER" },
+                "stopLoss": { "type": "NUMBER" },
+                "takeProfit": { "type": "NUMBER" },
+                "useSLTP": { "type": "BOOLEAN" },
+                "useRsiFilter": { "type": "BOOLEAN" },
+                "useBBFilter": { "type": "BOOLEAN" },
+                "useVolumeFilter": { "type": "BOOLEAN" }
+            }
+        };
+
+        const prompt = context;
+        
+        try {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { 
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                }
+            };
+            const apiKey = "";
+            const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
+            const apiUrl = apiKey ? `${baseUrl}?key=${apiKey}` : baseUrl;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                let jsonText = result.candidates[0].content.parts[0].text;
+                jsonText = jsonText.replace(/```json|```/g, '').trim();
+                const suggestions = JSON.parse(jsonText);
+                Object.keys(suggestions).forEach(key => {
+                    if(elements[key]){
+                        if(elements[key].type === 'checkbox'){
+                            elements[key].checked = suggestions[key];
+                        } else {
+                            elements[key].value = suggestions[key];
+                        }
+                    }
+                });
+                runSimulation();
+            } else {
+                console.error("AI suggestions response was empty or malformed:", result);
+                alert("Could not get AI suggestions. The model returned an empty response.");
+            }
+        } catch (error) {
+            console.error("Error calling Gemini API for suggestions:", error);
+            alert(`An error occurred while getting AI suggestions: ${error.message}`);
+        } finally {
+            btn.innerHTML = '✨ Get AI Suggestions';
+            btn.disabled = false;
+        }
+    }
 
 
     function setupEventListeners() {
@@ -1100,6 +1240,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
         elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
+        elements.getAISuggestionsBtn.addEventListener('click', getAISuggestions);
+        elements.resetToDefaultsBtn.addEventListener('click', setDefaults);
 
         
         const createHoverListener = (container, redrawFn, getHoverBox) => {
@@ -1132,6 +1274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function initialize() {
+        defaultSettings = getSettings();
         historicalPrices = await fetchCSV('./btc-usd-max.csv');
         if (historicalPrices.length > 0) {
             const lastDate = new Date(historicalPrices[historicalPrices.length - 1].date);
