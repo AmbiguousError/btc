@@ -50,6 +50,15 @@
         .control-panel.minimized #minimizeButton svg { 
             transform: rotate(180deg); 
         }
+        /* Gemini modal styles */
+        #reportModal .modal-content {
+             background-color: #343a40; /* Bootstrap dark gray */
+        }
+        #gemini-button {
+            background: linear-gradient(90deg, #89f7fe 0%, #66a6ff 100%);
+            color: #000;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="text-light">
@@ -86,11 +95,29 @@
                 <p class="mb-1"><strong>Time Elapsed:</strong> <span id="timeElapsed">0</span> years</p>
                 <p class="mb-1"><strong>Largest Body Mass:</strong> <span id="largestBodyMass">0</span></p>
                 <p class="mb-0"><strong>Particle Count:</strong> <span id="particleCount">0</span></p>
+                <button id="gemini-button" class="btn w-100 mt-2">Generate System Report ✨</button>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS Bundle -->
+    <!-- Gemini Report Modal -->
+    <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-light">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reportModalLabel">🔭 Astronomical Report</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="reportContent">
+                    <p>Generating report from the deep field survey...</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         class Boundary { constructor(x,y,w,h){this.x=x;this.y=y;this.w=w;this.h=h;} contains(p){return p.x>=this.x&&p.x<this.x+this.w&&p.y>=this.y&&p.y<this.y+this.h;} }
@@ -98,10 +125,65 @@
         class Star { constructor(x,y,m,r){this.x=x;this.y=y;this.mass=m;this.radius=r;} draw(){const c=ctx;c.save();c.beginPath();const g=c.createRadialGradient(this.x,this.y,this.radius*.2,this.x,this.y,this.radius);g.addColorStop(0,'#ffffc8');g.addColorStop(.5,'#ffcc00');g.addColorStop(1,'#ff990000');c.fillStyle=g;c.shadowColor='#ffff0080';c.shadowBlur=50;c.arc(this.x,this.y,this.radius,0,Math.PI*2);c.fill();c.restore();} }
         class Particle { constructor(x,y,r,c,i=!1){this.x=x;this.y=y;this.vx=0;this.vy=0;this.ax=0;this.ay=0;this.radius=r;this.mass=Math.PI*r*r;this.color=c;this.isComet=i;this.collided=!1;} resetForce(){this.ax=0;this.ay=0;} draw(){const c=ctx;c.save();c.beginPath();c.fillStyle=this.color;c.shadowColor=this.isComet?'#b4dfff':'#ffffffb3';c.shadowBlur=this.radius*1.5+2;c.arc(this.x,this.y,this.radius,0,Math.PI*2);c.fill();c.restore();} applyStarGravity(s){const dx=s.x-this.x,dy=s.y-this.y,distSq=dx*dx+dy*dy;if(distSq===0)return;const dist=Math.sqrt(distSq);if(dist<s.radius){this.collided=!0;return;}const acc=G*s.mass/distSq;this.ax+=acc*dx/dist;this.ay+=acc*dy/dist;} update(){this.vx+=this.ax;this.vy+=this.ay;this.vx*=1-GAS_DRAG_FACTOR;this.vy*=1-GAS_DRAG_FACTOR;this.x+=this.vx;this.y+=this.vy;} }
         
-        const getEl=id=>document.getElementById(id),canvas=getEl('simulationCanvas'),ctx=canvas.getContext('2d'),controlPanel=getEl('controlPanel'),minimizeButton=getEl('minimizeButton'),simSpeedSlider=getEl('simSpeed'),nBodyToggle=getEl('nBodyToggle'),thetaSlider=getEl('theta'),starMassSlider=getEl('starMass'),diskDensitySlider=getEl('diskDensity'),dustSizeSlider=getEl('dustSize'),gravitySlider=getEl('gravityConstant'),orbitalVelocitySlider=getEl('orbitalVelocity'),cometCountSlider=getEl('cometCount'),gasDragSlider=getEl('gasDrag'),resetButton=getEl('resetButton'),solSystemButton=getEl('solSystemButton'),timeElapsedEl=getEl('timeElapsed'),largestBodyMassEl=getEl('largestBodyMass'),particleCountEl=getEl('particleCount');
+        const getEl=id=>document.getElementById(id),canvas=getEl('simulationCanvas'),ctx=canvas.getContext('2d'),controlPanel=getEl('controlPanel'),minimizeButton=getEl('minimizeButton'),simSpeedSlider=getEl('simSpeed'),nBodyToggle=getEl('nBodyToggle'),thetaSlider=getEl('theta'),starMassSlider=getEl('starMass'),diskDensitySlider=getEl('diskDensity'),dustSizeSlider=getEl('dustSize'),gravitySlider=getEl('gravityConstant'),orbitalVelocitySlider=getEl('orbitalVelocity'),cometCountSlider=getEl('cometCount'),gasDragSlider=getEl('gasDrag'),resetButton=getEl('resetButton'),solSystemButton=getEl('solSystemButton'),timeElapsedEl=getEl('timeElapsed'),largestBodyMassEl=getEl('largestBodyMass'),particleCountEl=getEl('particleCount'),geminiButton=getEl('gemini-button');
         let particles=[],star,qt,animationFrameId,simulationTime=0,STAR_MASS,NUM_PARTICLES,INITIAL_DUST_SIZE,G,ORBITAL_VELOCITY_FACTOR,NUM_COMETS,GAS_DRAG_FACTOR,N_BODY_ENABLED,THETA,N_BODY_G,SIMULATION_SPEED;
         let timeAccumulator=0;const SOFTENING_FACTOR=20,SOFTENING_FACTOR_SQ=SOFTENING_FACTOR*SOFTENING_FACTOR,solarSystemData=[{name:'Mercury',au:.39,radius:2,color:'#9f9f9f'},{name:'Venus',au:.72,radius:3.5,color:'#d4c9a8'},{name:'Earth',au:1,radius:3.6,color:'#6b93d6'},{name:'Mars',au:1.52,radius:2.5,color:'#c1440e'},{name:'Jupiter',au:5.2,radius:9,color:'#d8ca9d'},{name:'Saturn',au:9.58,radius:8,color:'#f0e3a3'},{name:'Uranus',au:19.22,radius:6,color:'#aadae1'},{name:'Neptune',au:30.05,radius:5.8,color:'#5b5ddf'}];
-        
+        let reportModalInstance = null;
+
+        async function generateReport() {
+            if (!reportModalInstance) {
+                reportModalInstance = new bootstrap.Modal(document.getElementById('reportModal'));
+            }
+            const reportContent = document.getElementById('reportContent');
+            reportContent.innerHTML = `<div class="d-flex justify-content-center align-items-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="ms-3 mb-0">Generating report...</p></div>`;
+            reportModalInstance.show();
+
+            const significantPlanetCount = particles.filter(p => p.mass > 50).length;
+            const largestMass = parseFloat(largestBodyMassEl.textContent);
+
+            const prompt = `You are an astronomer writing a creative, one-paragraph observational report for a public outreach blog. Based on the following data, describe the state of this young, simulated planetary system. Be descriptive and imaginative.
+
+            **System Data:**
+            - **System Age:** Approximately ${Math.floor(simulationTime).toLocaleString()} million years.
+            - **Central Star Mass:** ${STAR_MASS.toFixed(1)} Solar Masses.
+            - **Number of Major Planetesimals:** ${significantPlanetCount}.
+            - **Mass of Largest Body:** ${largestMass.toFixed(2)} relative mass units.
+            - **Remaining Debris Particles:** ${particles.length}.
+            - **Comet Population:** ${NUM_COMETS} active comets detected.
+            - **System Stability:** Orbital velocity factor is ${ORBITAL_VELOCITY_FACTOR * 100}%.
+
+            Write a captivating summary.`;
+
+            try {
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0]) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    reportContent.innerHTML = text.replace(/\n/g, '<br>');
+                } else {
+                    throw new Error("Invalid response structure from API.");
+                }
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                reportContent.innerHTML = `<p class="text-danger">Error generating report. Could not connect to the observatory's deep space network. Please check the console for details.</p>`;
+            }
+        }
+
         function loadSolSystem(){if(animationFrameId)cancelAnimationFrame(animationFrameId);resizeCanvas();nBodyToggle.checked=!1;starMassSlider.value=1;gravitySlider.value=2;simSpeedSlider.value=1;readAndSetParams();const cX=canvas.width/2,cY=canvas.height/2;star=new Star(cX,cY,STAR_MASS*1e4,15);particles=[];const maxScreenDist=Math.min(cX,cY)*.9,neptuneAU=30.05;solarSystemData.forEach(p=>{const a=Math.random()*Math.PI*2,dist=maxScreenDist*Math.pow(p.au/neptuneAU,.65),x=cX+Math.cos(a)*dist,y=cY+Math.sin(a)*dist,planet=new Particle(x,y,p.radius,p.color),oV=Math.sqrt(G*star.mass/dist);planet.vx=-Math.sin(a)*oV;planet.vy=Math.cos(a)*oV;particles.push(planet);});animate();}
         function init(){if(animationFrameId)cancelAnimationFrame(animationFrameId);resizeCanvas();readAndSetParams();const cX=canvas.width/2,cY=canvas.height/2,dominantStarMass=STAR_MASS*1e4;star=new Star(cX,cY,dominantStarMass,15+(STAR_MASS-1)*5);particles=[];const maxDist=Math.min(cX,cY)*.8,minDist=star.radius*4;for(let i=0;i<NUM_PARTICLES;i++){const a=Math.random()*Math.PI*2,d=Math.sqrt(Math.random())*(maxDist-minDist)+minDist,x=cX+Math.cos(a)*d,y=cY+Math.sin(a)*d,r=(Math.random()*.5+.5)*INITIAL_DUST_SIZE,p=new Particle(x,y,r,'white'),oV=Math.sqrt(G*star.mass/d);p.vx=-Math.sin(a)*oV*ORBITAL_VELOCITY_FACTOR;p.vy=Math.cos(a)*oV*ORBITAL_VELOCITY_FACTOR;particles.push(p);}for(let i=0;i<NUM_COMETS;i++){const a=Math.random()*Math.PI*2,d=(Math.random()*.2+.8)*maxDist,x=cX+Math.cos(a)*d,y=cY+Math.sin(a)*d,r=(Math.random()*.5+1)*INITIAL_DUST_SIZE,p=new Particle(x,y,r,'#cceeff',!0),oV=Math.sqrt(G*star.mass/d),cV=1.4;p.vx=-Math.sin(a)*oV*cV;p.vy=Math.cos(a)*oV*cV;particles.push(p);}animate();}
         function readAndSetParams(){SIMULATION_SPEED=parseFloat(simSpeedSlider.value);N_BODY_ENABLED=nBodyToggle.checked;THETA=parseFloat(thetaSlider.value);STAR_MASS=parseFloat(starMassSlider.value);NUM_PARTICLES=parseInt(diskDensitySlider.value);INITIAL_DUST_SIZE=parseFloat(dustSizeSlider.value);G=parseFloat(gravitySlider.value);N_BODY_G=G*.05;ORBITAL_VELOCITY_FACTOR=parseFloat(orbitalVelocitySlider.value);NUM_COMETS=parseInt(cometCountSlider.value);GAS_DRAG_FACTOR=parseFloat(gasDragSlider.value);timeAccumulator=0;simulationTime=0;updateLabels();}
@@ -111,6 +193,7 @@
         function animate(){timeAccumulator+=SIMULATION_SPEED;while(timeAccumulator>=1){if(N_BODY_ENABLED){const b=new Boundary(-canvas.width*2,-canvas.height*2,canvas.width*5,canvas.height*5);qt=new QuadTree(b,4);particles.forEach(p=>{p.resetForce();qt.insert(p);});qt.updateMass();particles.forEach(p=>{p.applyStarGravity(star);qt.calculateForce(p,THETA);});}else{particles.forEach(p=>{p.resetForce();p.applyStarGravity(star);});}particles.forEach(p=>p.update());checkCollisions();simulationTime+=1;timeAccumulator-=1;}ctx.clearRect(0,0,canvas.width,canvas.height);star.draw();particles.forEach(p=>p.draw());updateInfoPanel();animationFrameId=requestAnimationFrame(animate);}
         function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
         window.addEventListener('resize',init);resetButton.addEventListener('click',init);solSystemButton.addEventListener('click',loadSolSystem);minimizeButton.addEventListener('click',()=>controlPanel.classList.toggle('minimized'));
+        geminiButton.addEventListener('click', generateReport);
         nBodyToggle.addEventListener('change',init);
         [simSpeedSlider,thetaSlider,starMassSlider,diskDensitySlider,dustSizeSlider,gravitySlider,orbitalVelocitySlider,cometCountSlider,gasDragSlider].forEach(s=>{s.addEventListener('input',()=>{readAndSetParams();if(s.id!=='simSpeed'&&s.id!=='theta')init();});});
         init();
