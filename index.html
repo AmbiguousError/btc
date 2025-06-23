@@ -1,35 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Version: 12.8 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Base styling for the body and container */
         body {
-            font-family: 'Inter', sans-serif; /* Sets a clean, modern font */
-            background-color: #f0f2f5; /* Light gray background */
-            color: #333; /* Dark gray text color */
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Aligns content to the top */
-            min-height: 100vh; /* Full viewport height */
+            align-items: flex-start;
+            min-height: 100vh;
             padding: 20px;
             box-sizing: border-box;
         }
         .container {
-            background-color: #fff; /* White background for the main content area */
-            border-radius: 15px; /* Rounded corners */
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             padding: 30px;
-            max-width: 900px; /* Limits the maximum width */
+            max-width: 900px;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 20px; /* Spacing between sections */
+            gap: 20px;
         }
-        /* Styling for chart canvases */
         canvas {
             border: 1px solid #e2e8f0;
             border-radius: 8px;
@@ -37,13 +37,12 @@
             width: 100%;
             height: auto;
         }
-        /* Specific aspect ratios for different chart types */
         #currentChartCanvas, #optimumChartCanvas, #comprehensiveOptimumChartCanvas, #rsiFilteredChartCanvas {
-            aspect-ratio: 16 / 9; /* Standard widescreen aspect ratio */
+            aspect-ratio: 16 / 9;
              max-height: 450px;
         }
         #rsiChartCanvas, #rsiFilteredRsiChartCanvas, #volumeChartCanvas, #filteredVolumeChartCanvas {
-            aspect-ratio: 16 / 5; /* Shorter aspect ratio for indicator charts */
+            aspect-ratio: 16 / 5;
             max-height: 150px;
         }
         #patternChartCanvas {
@@ -53,7 +52,6 @@
             border-radius: 8px;
             background-color: #fdfdfd;
         }
-        /* Styling for input groups and labels */
         .input-group { display: flex; flex-direction: column; gap: 8px; }
         .input-group label, .checkbox-group label { font-weight: 600; color: #4a5568; }
         .input-group input[type="number"], .input-group input[type="date"] {
@@ -62,27 +60,24 @@
         }
         .input-group input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
         .checkbox-group { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-        /* Button styling */
         .btn-primary {
-            background-color: #6366f1; /* Indigo color */
-            color: white; padding: 12px 20px; border-radius: 8px; font-weight: 700;
+            background-color: #6366f1; color: white; padding: 12px 20px; border-radius: 8px; font-weight: 700;
             transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out; cursor: pointer;
             box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
         }
         .btn-primary:hover { background-color: #4f46e5; transform: translateY(-1px); }
         .btn-secondary {
-            background-color: #64748b; /* Gray color for secondary actions */
+            background-color: #64748b;
         }
         .btn-secondary:hover {
              background-color: #475569;
         }
         .btn-ai {
-            background-color: #8b5cf6; /* Purple color for AI-related buttons */
+            background-color: #8b5cf6; /* A nice purple */
         }
         .btn-ai:hover {
             background-color: #7c3aed;
         }
-        /* Styling for various information boxes */
         .results-box { background-color: #edf2f7; border-radius: 10px; padding: 20px; border: 1px solid #d1d5db; }
         .explanation-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
         .explanation-box h3, .results-box h3, .optimization-results h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; color: #2d3748; }
@@ -90,19 +85,14 @@
         .message-box { background-color: #fefcbf; border: 1px solid #fbd38d; color: #92400e; padding: 15px; border-radius: 8px; margin-top: 15px; font-weight: 500; text-align: center; }
         .error-message { background-color: #fed7d7; border-color: #fc8181; color: #c53030; }
         .warning-message { background-color: #ffe8d1; border: 1px solid #ffcc80; color: #a0522d; }
-        /* Loading spinner animation */
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #6366f1; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Hover information box for charts */
         .hover-info-box { background-color: #1a202c; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.875rem; position: absolute; z-index: 10; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: none; }
-        /* Styling for chart sections and optimization results */
         .chart-section { border: 1px solid #e2e8f0; border-radius: 15px; padding: 20px; background-color: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         .optimization-results { background-color: #e0f2fe; border-radius: 10px; padding: 20px; border: 1px solid #90cdf4; margin-top: 20px; }
-        /* Data preview table styling */
         .data-preview-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: left; }
         .data-preview-table th, .data-preview-table td { border: 1px solid #e2e8f0; padding: 8px 12px; }
         .data-preview-table th { background-color: #e9eef4; font-weight: 600; color: #4a5568; }
-        /* AI analysis box styling */
         .ai-analysis-box {
             background-color: #f0f9ff;
             border: 1px solid #bae6fd;
@@ -121,10 +111,9 @@
             line-height: 1.6;
             color: #374151;
         }
-        /* Description box for parameters and sections */
         .description-box {
             background-color: #f7fafc;
-            border-left: 4px solid #6366f1; /* Left border for emphasis */
+            border-left: 4px solid #6366f1;
             padding: 12px 16px;
             margin-bottom: 1rem;
             font-size: 0.9rem;
@@ -343,18 +332,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
-    // This script runs when the entire HTML document has been loaded and parsed.
-
     // --- Global Variables ---
-    let historicalPrices = []; // Stores the full historical BTC/USD price data from the CSV.
-    let filteredPrices = []; // Stores price data filtered by the selected date range.
-    // Variables to hold strategy performance data for different simulations/optimizations
+    let historicalPrices = [];
+    let filteredPrices = [];
     let currentStrategyData = null;
     let rsiFilteredStrategyData = null;
     let optimumStrategyData = null;
     let comprehensiveStrategyData = null;
-    let defaultSettings = {}; // Stores the initial default values of the strategy parameters.
-    // Predefined data for visualizing classic chart patterns
+    let defaultSettings = {};
     const patternData = {
         headAndShoulders: {
             name: 'Head & Shoulders (Bearish Reversal)',
@@ -387,9 +372,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- DOM Element Cache ---
-    // Caches references to various HTML elements for efficient access.
     const elements = {
-        // Canvases for charts
+        // Canvases
         currentChartCanvas: document.getElementById('currentChartCanvas'),
         rsiChartCanvas: document.getElementById('rsiChartCanvas'),
         volumeChartCanvas: document.getElementById('volumeChartCanvas'),
@@ -399,7 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         optimumChartCanvas: document.getElementById('optimumChartCanvas'),
         comprehensiveOptimumChartCanvas: document.getElementById('comprehensiveOptimumChartCanvas'),
         patternChartCanvas: document.getElementById('patternChartCanvas'),
-        // Input fields and selectors for strategy parameters and date ranges
+        // Inputs & Selectors
         startDate: document.getElementById('startDate'),
         endDate: document.getElementById('endDate'),
         initialInvestment: document.getElementById('initialInvestment'),
@@ -424,16 +408,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         minLongMA: document.getElementById('minLongMA'),
         maxLongMA: document.getElementById('maxLongMA'),
         patternSelector: document.getElementById('patternSelector'),
-        // Buttons to trigger actions
+        // Buttons
         runSimulationBtn: document.getElementById('runSimulationBtn'),
         resetToDefaultsBtn: document.getElementById('resetToDefaultsBtn'),
         findOptimumBtn: document.getElementById('findOptimumBtn'),
         findComprehensiveOptimumBtn: document.getElementById('findComprehensiveOptimumBtn'),
-        // Spinners for loading indicators
+        // Spinners
         loadingSpinner: document.getElementById('loadingSpinner'),
         optimizationSpinner: document.getElementById('optimizationSpinner'),
         comprehensiveOptimizationSpinner: document.getElementById('comprehensiveOptimizationSpinner'),
-        // Divs for displaying results and information
+        // Results & Info
         dataPreviewSection: document.getElementById('dataPreviewSection'),
         dataPreviewTableBody: document.getElementById('dataPreviewTableBody'),
         currentSimulationResults: document.getElementById('currentSimulationResults'),
@@ -450,157 +434,141 @@ document.addEventListener('DOMContentLoaded', async () => {
         potentialSellScenariosContainer: document.getElementById('potentialSellScenariosContainer'),
         currentPotentialSellScenariosContainer: document.getElementById('currentPotentialSellScenariosContainer'),
         filteredPotentialSellScenariosContainer: document.getElementById('filteredPotentialSellScenariosContainer'),
-        // Hover boxes for displaying detailed info on chart hover
+        // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
         optimumHoverInfoBox: document.getElementById('optimumHoverInfoBox'),
         comprehensiveHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox'),
-        // AI analysis elements
+        // AI elements
         aiAnalysisContainer: document.getElementById('aiAnalysisContainer'),
         analyzeStrategyBtn: document.getElementById('analyzeStrategyBtn'),
         aiAnalysisResultBox: document.getElementById('aiAnalysisResultBox'),
     };
 
     // --- Helper Functions ---
-    const showSpinner = spinner => spinner.style.display = 'block'; // Displays a loading spinner.
-    const hideSpinner = spinner => spinner.style.display = 'none'; // Hides a loading spinner.
+    const showSpinner = spinner => spinner.style.display = 'block';
+    const hideSpinner = spinner => spinner.style.display = 'none';
 
-    // Formats a number to a specified number of decimal places and adds locale-specific thousands separators.
     function formatNumber(num, decimals = 2) {
         if (typeof num !== 'number') return num;
         return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
     
-    // Shows content in a specified HTML container element.
     function showResults(container, content) {
         container.innerHTML = content;
-        container.classList.remove('hidden'); // Makes the container visible.
+        container.classList.remove('hidden');
     }
     
     // --- Data Handling ---
-    // Fetches CSV data from a specified file path.
     async function fetchCSV(filePath) {
-        showSpinner(elements.loadingSpinner); // Show loading spinner
+        showSpinner(elements.loadingSpinner);
         try {
-            const response = await fetch(filePath); // Fetch the CSV file.
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); // Check for HTTP errors.
-            const csvText = await response.text(); // Get the response as text.
-            return parseCSV(csvText); // Parse the CSV text.
+            const response = await fetch(filePath);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const csvText = await response.text();
+            return parseCSV(csvText);
         } catch (error) {
-            // Display an error message if fetching or parsing fails.
             showResults(elements.currentSimulationResults, `<div class="error-message">Failed to load data: ${error.message}.</div>`);
-            return []; // Return an empty array on error.
+            return [];
         } finally {
-            hideSpinner(elements.loadingSpinner); // Hide loading spinner regardless of success or failure.
+            hideSpinner(elements.loadingSpinner);
         }
     }
 
-    // Parses CSV text into an array of objects, extracting 'price', 'snapped_at' (date), and 'total_volume'.
     function parseCSV(csvText) {
-        const lines = csvText.trim().split('\n'); // Split into individual lines.
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '')); // Parse headers.
-        const closePriceIndex = headers.indexOf('price'); // Find index of 'price' column.
-        const dateIndex = headers.indexOf('snapped_at'); // Find index of 'snapped_at' column.
-        const volumeIndex = headers.indexOf('total_volume'); // Find index of 'total_volume' column.
-        if (closePriceIndex === -1 || dateIndex === -1) throw new Error('CSV missing "price" or "snapped_at" column.'); // Error if essential columns are missing.
-        if(volumeIndex === -1) console.warn("Volume data not found in CSV. Volume filter will be disabled."); // Warn if volume data is missing.
+        const lines = csvText.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const closePriceIndex = headers.indexOf('price');
+        const dateIndex = headers.indexOf('snapped_at');
+        const volumeIndex = headers.indexOf('total_volume');
+        if (closePriceIndex === -1 || dateIndex === -1) throw new Error('CSV missing "price" or "snapped_at" column.');
+        if(volumeIndex === -1) console.warn("Volume data not found in CSV. Volume filter will be disabled.");
 
-        // Map remaining lines to data objects.
         return lines.slice(1).map(line => {
             const cols = line.split(',');
-            const price = parseFloat(cols[closePriceIndex]); // Parse price as float.
-            const date = cols[dateIndex]?.replace(/"/g, '').replace(' UTC', ''); // Clean up date string.
-            const volume = volumeIndex > -1 ? parseFloat(cols[volumeIndex]) : 0; // Parse volume or default to 0.
-            return !isNaN(price) && date ? { price, date, volume } : null; // Return object if price and date are valid.
-        }).filter(Boolean); // Filter out any null entries (invalid rows).
+            const price = parseFloat(cols[closePriceIndex]);
+            const date = cols[dateIndex]?.replace(/"/g, '').replace(' UTC', '');
+            const volume = volumeIndex > -1 ? parseFloat(cols[volumeIndex]) : 0;
+            return !isNaN(price) && date ? { price, date, volume } : null;
+        }).filter(Boolean);
     }
     
-    // Filters an array of data points by a specified date range.
     function filterDataByDateRange(data, startDate, endDate) {
-        const start = startDate ? new Date(startDate).getTime() : -Infinity; // Convert start date to timestamp or -Infinity.
-        const end = endDate ? new Date(endDate).getTime() : Infinity; // Convert end date to timestamp or +Infinity.
+        const start = startDate ? new Date(startDate).getTime() : -Infinity;
+        const end = endDate ? new Date(endDate).getTime() : Infinity;
         return data.filter(p => {
-            const pointDate = new Date(p.date).getTime(); // Get timestamp of data point.
-            return pointDate >= start && pointDate <= end; // Check if within range.
+            const pointDate = new Date(p.date).getTime();
+            return pointDate >= start && pointDate <= end;
         });
     }
 
-    // Updates a table with a preview of the filtered data.
     function updateDataPreviewTable(data) {
-        elements.dataPreviewTableBody.innerHTML = ''; // Clear existing table rows.
+        elements.dataPreviewTableBody.innerHTML = '';
         if (data.length === 0) {
-            elements.dataPreviewSection.classList.add('hidden'); // Hide section if no data.
+            elements.dataPreviewSection.classList.add('hidden');
             return;
         }
-        // Show first 5 and last 5 rows if data is long, otherwise all rows.
         const previewData = [...data.slice(0, 5)];
         if (data.length > 10) {
-            previewData.push(null); // Placeholder for "..."
+            previewData.push(null);
             previewData.push(...data.slice(data.length - 5));
         } else if (data.length > 5) {
             previewData.push(...data.slice(5));
         }
 
         previewData.forEach(rowData => {
-            const row = elements.dataPreviewTableBody.insertRow(); // Insert new row.
+            const row = elements.dataPreviewTableBody.insertRow();
             if (rowData === null) {
                 const cell = row.insertCell();
-                cell.colSpan = 2; // Span two columns for "..."
+                cell.colSpan = 2;
                 cell.textContent = '...';
                 cell.style.textAlign = 'center';
             } else {
-                row.insertCell().textContent = new Date(rowData.date).toLocaleDateString(); // Date cell.
-                row.insertCell().textContent = `$${formatNumber(rowData.price)}`; // Price cell.
+                row.insertCell().textContent = new Date(rowData.date).toLocaleDateString();
+                row.insertCell().textContent = `$${formatNumber(rowData.price)}`;
             }
         });
-        elements.dataPreviewSection.classList.remove('hidden'); // Show the data preview section.
+        elements.dataPreviewSection.classList.remove('hidden');
     }
 
     // --- Technical Analysis Calculations ---
-    // Calculates Simple Moving Average (SMA) for a given data array and period.
     const calculateSMA = (data, period, key = 'price') => {
-        const sma = Array(data.length).fill(null); // Initialize SMA array with nulls.
+        const sma = Array(data.length).fill(null);
         for (let i = period - 1; i < data.length; i++) {
-            // Calculate sum of 'key' values for the current period.
             sma[i] = data.slice(i - period + 1, i + 1).reduce((sum, d) => sum + d[key], 0) / period;
         }
         return sma;
     };
     
-    // Calculates Relative Strength Index (RSI) for a given data array and period.
     const calculateRSI = (data, period) => {
-        const rsi = Array(data.length).fill(null); // Initialize RSI array.
-        if (period >= data.length) return rsi; // Not enough data for calculation.
-
+        const rsi = Array(data.length).fill(null);
+        if (period >= data.length) return rsi;
         let gains = 0, losses = 0;
-        // Calculate initial average gains and losses for the first period.
         for (let i = 1; i <= period; i++) {
             const change = data[i].price - data[i - 1].price;
             change > 0 ? gains += change : losses -= change;
         }
         let avgGain = gains / period, avgLoss = losses / period;
-        rsi[period] = 100 - (100 / (1 + (avgGain / avgLoss))); // Calculate initial RSI.
+        rsi[period] = 100 - (100 / (1 + (avgGain / avgLoss)));
 
-        // Calculate subsequent RSI values using smoothing.
         for (let i = period + 1; i < data.length; i++) {
             const change = data[i].price - data[i - 1].price;
             avgGain = (avgGain * (period - 1) + (change > 0 ? change : 0)) / period;
             avgLoss = (avgLoss * (period - 1) + (change < 0 ? -change : 0)) / period;
-            rsi[i] = 100 - (100 / (1 + (avgLoss === 0 ? Infinity : avgGain / avgLoss))); // Handle division by zero.
+            rsi[i] = 100 - (100 / (1 + (avgLoss === 0 ? Infinity : avgGain / avgLoss)));
         }
         return rsi;
     };
 
-    // Calculates Bollinger Bands (BB) for a given data array, period, and standard deviation multiplier.
     function calculateBollingerBands(data, period, stdDevMultiplier) {
-        const middle = Array(data.length).fill(null); // Middle band (SMA)
-        const upper = Array(data.length).fill(null); // Upper band
-        const lower = Array(data.length).fill(null); // Lower band
+        const middle = Array(data.length).fill(null);
+        const upper = Array(data.length).fill(null);
+        const lower = Array(data.length).fill(null);
 
         for (let i = period - 1; i < data.length; i++) {
-            const slice = data.slice(i - period + 1, i + 1).map(d => d.price); // Get price slice for period.
-            const sma = slice.reduce((sum, val) => sum + val, 0) / period; // Calculate SMA.
-            const stdDev = Math.sqrt(slice.reduce((sum, val) => sum + Math.pow(val - sma, 2), 0) / period); // Calculate standard deviation.
+            const slice = data.slice(i - period + 1, i + 1).map(d => d.price);
+            const sma = slice.reduce((sum, val) => sum + val, 0) / period;
+            const stdDev = Math.sqrt(slice.reduce((sum, val) => sum + Math.pow(val - sma, 2), 0) / period);
             
             middle[i] = sma;
             upper[i] = sma + (stdDev * stdDevMultiplier);
@@ -609,74 +577,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { middle, upper, lower };
     }
 
-    // Simulates a trading strategy based on provided technical indicators and settings.
     function calculateStrategyPerformance(prices, shortMA, longMA, rsi, bb, volumeSMA, settings) {
-        let cash = settings.initialInvestment; // Starting cash.
-        let btc = 0; // Current BTC holdings.
-        let signals = []; // Array to store buy/sell signals.
-        let entryPrice = 0; // Price at which the last BTC position was entered.
+        let cash = settings.initialInvestment;
+        let btc = 0;
+        let signals = [];
+        let entryPrice = 0;
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
             const volume = prices[i].volume;
             
-            if (btc > 0) { // If currently in a BTC position (holding BTC)
+            if (btc > 0) { // In a position, check for sell conditions
                 let sellReason = null;
-                const stopLossPrice = entryPrice * (1 - settings.stopLoss / 100); // Calculate stop-loss price.
-                const takeProfitPrice = entryPrice * (1 + settings.takeProfit / 100); // Calculate take-profit price.
+                const stopLossPrice = entryPrice * (1 - settings.stopLoss / 100);
+                const takeProfitPrice = entryPrice * (1 + settings.takeProfit / 100);
 
                 if (settings.useSLTP) {
-                    // Check if price hits stop-loss or take-profit.
                     if (price <= stopLossPrice) sellReason = 'stop_loss';
                     else if (price >= takeProfitPrice) sellReason = 'take_profit';
                 }
 
-                if (!sellReason) { // If not triggered by SL/TP, check indicator signals for a sell.
-                    const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i]; // Death Cross signal.
-                    const bbConditionSell = !settings.useBBFilter || price > bb.middle[i]; // Bollinger Band sell condition.
-                    const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i]; // Volume filter condition.
+                if (!sellReason) { // If not triggered by SL/TP, check indicator signals
+                    const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
+                    const bbConditionSell = !settings.useBBFilter || price > bb.middle[i];
+                    const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
                     if(deathCross && bbConditionSell && volumeCondition) {
-                        sellReason = 'death_cross'; // If all conditions met, trigger Death Cross sell.
+                        sellReason = 'death_cross';
                     }
                 }
 
-                if(sellReason){ // If a sell signal is found
-                    cash = btc * price; // Convert BTC back to cash.
-                    btc = 0; // Reset BTC holdings.
-                    const buySignal = signals.filter(s => s.type === 'buy').pop(); // Get the last buy signal.
-                    const grossProfit = cash - (buySignal.btc * buySignal.price); // Calculate gross profit for this trade.
-                    signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason }); // Record sell signal.
+                if(sellReason){
+                    cash = btc * price;
+                    btc = 0;
+                    const buySignal = signals.filter(s => s.type === 'buy').pop();
+                    const grossProfit = cash - (buySignal.btc * buySignal.price);
+                    signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason });
                 }
 
-            } else { // If not in a position (holding cash), check for buy conditions
-                const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i]; // Golden Cross signal.
-                const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought; // RSI buy condition.
-                const bbConditionBuy = !settings.useBBFilter || price < bb.middle[i]; // Bollinger Band buy condition.
-                const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i]; // Volume filter condition.
+            } else { // Not in a position, check for buy conditions
+                const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
+                const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
+                const bbConditionBuy = !settings.useBBFilter || price < bb.middle[i];
+                const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
                 
                 if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
-                    // If all conditions met, trigger a buy.
-                    btc = cash / price; // Convert cash to BTC.
-                    entryPrice = price; // Store entry price.
-                    signals.push({ index: i, type: 'buy', price, btc }); // Record buy signal.
-                    cash = 0; // Reset cash.
+                    btc = cash / price;
+                    entryPrice = price;
+                    signals.push({ index: i, type: 'buy', price, btc });
+                    cash = 0;
                 }
             }
         }
         
-        // Calculate final portfolio value.
-        const inPositionAtEnd = btc > 0; // Check if still in position at the end.
-        let finalValue = inPositionAtEnd ? btc * prices[prices.length - 1].price : cash; // Value based on last price or remaining cash.
+        const inPositionAtEnd = btc > 0;
+        let finalValue = inPositionAtEnd ? btc * prices[prices.length - 1].price : cash;
         
-        const totalProfit = finalValue - settings.initialInvestment; // Gross profit.
+        const totalProfit = finalValue - settings.initialInvestment;
         let finalNetValue = finalValue;
 
         if (totalProfit > 0) {
-            // Calculate fees and taxes if there's a profit.
             const fee = totalProfit * (settings.serviceFee / 100);
             const taxableProfit = totalProfit - fee;
             const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
-            finalNetValue = finalValue - fee - tax; // Deduct fees and taxes.
+            finalNetValue = finalValue - fee - tax;
         }
         
         return { signals, finalValue: finalNetValue, preTaxFinalValue: finalValue, inPositionAtEnd: inPositionAtEnd };
@@ -684,37 +647,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // --- Charting ---
-    // Sets up a canvas for drawing, adjusting for device pixel ratio.
     function setupCanvas(canvas) {
         if (!canvas) return { ctx: null, width: 0, height: 0 };
-        const dpr = window.devicePixelRatio || 1; // Get device pixel ratio.
-        const rect = canvas.getBoundingClientRect(); // Get canvas dimensions.
-        canvas.width = rect.width * dpr; // Set canvas physical width.
-        canvas.height = rect.height * dpr; // Set canvas physical height.
-        const ctx = canvas.getContext('2d'); // Get 2D rendering context.
-        ctx.scale(dpr, dpr); // Scale context for HiDPI displays.
-        return { ctx, width: rect.width, height: rect.height }; // Return context and scaled dimensions.
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        return { ctx, width: rect.width, height: rect.height };
     }
 
-    // Draws an idealized chart pattern.
     function drawPatternChart(data, title) {
         const canvas = elements.patternChartCanvas;
         const { ctx, width, height } = setupCanvas(canvas);
-        ctx.clearRect(0, 0, width, height); // Clear canvas.
+        ctx.clearRect(0, 0, width, height);
         
         if (!data || data.length === 0) return;
 
-        let min = Math.min(...data), max = Math.max(...data); // Find min/max values in data.
-        const padding = (max - min) * 0.2; // Add padding for better visualization.
+        let min = Math.min(...data), max = Math.max(...data);
+        const padding = (max - min) * 0.2; // More padding for visual clarity
         min -= padding;
         max += padding;
 
-        const xScale = width / (data.length -1 || 1); // Calculate x-axis scale.
-        const yScale = height / (max - min || 1); // Calculate y-axis scale.
-        const getX = i => i * xScale; // Function to get x coordinate.
-        const getY = price => height - ((price - min) * yScale); // Function to get y coordinate (inverted for canvas).
+        const xScale = width / (data.length -1 || 1);
+        const yScale = height / (max - min || 1);
+        const getX = i => i * xScale;
+        const getY = price => height - ((price - min) * yScale);
 
-        // Draw line for the pattern.
+        // Draw line
         const points = data.map((d, i) => ({ x: getX(i), y: getY(d) }));
         drawDataLine(ctx, points, '#6366f1', 2);
 
@@ -725,28 +686,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         ctx.fillText(title, width / 2, 20);
     }
 
-    // Draws the main price chart with MAs, Bollinger Bands, and trading signals.
     function drawChart(canvas, pricesData, shortMA, longMA, bb, signals, settings, hoverInfo) {
         const { ctx, width, height } = setupCanvas(canvas);
-        ctx.clearRect(0, 0, width, height); // Clear canvas.
+        ctx.clearRect(0, 0, width, height);
 
-        const prices = pricesData.map(d => d.price); // Extract prices.
-        const allValues = [...prices, ...shortMA, ...longMA, ...bb.upper, ...bb.lower].filter(v => v !== null); // Combine all data for min/max scaling.
+        const prices = pricesData.map(d => d.price);
+        const allValues = [...prices, ...shortMA, ...longMA, ...bb.upper, ...bb.lower].filter(v => v !== null);
         if (allValues.length === 0) return;
         
-        let min = Math.min(...allValues), max = Math.max(...allValues); // Find overall min/max.
-        const padding = (max - min) * 0.1; // Add padding.
+        let min = Math.min(...allValues), max = Math.max(...allValues);
+        const padding = (max - min) * 0.1;
         min -= padding; max += padding;
 
-        const xScale = width / (prices.length -1 || 1); // X-axis scale.
-        const yScale = height / (max - min || 1); // Y-axis scale.
-        const getX = i => i * xScale; // Get X coordinate function.
-        const getY = price => height - ((price - min) * yScale); // Get Y coordinate function.
+        const xScale = width / (prices.length -1 || 1);
+        const yScale = height / (max - min || 1);
+        const getX = i => i * xScale;
+        const getY = price => height - ((price - min) * yScale);
         
-        // Draw Bollinger Bands Area (a shaded region).
+        // Bollinger Bands Area
         ctx.fillStyle = 'rgba(165, 180, 252, 0.1)'; 
-        const upperPoints = bb.upper.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}).filter(Boolean); // Points for upper band.
-        const lowerPoints = bb.lower.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}).filter(Boolean).reverse(); // Points for lower band (reversed to close path).
+        const upperPoints = bb.upper.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}).filter(Boolean);
+        const lowerPoints = bb.lower.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}).filter(Boolean).reverse();
         
         if (upperPoints.length > 0 && lowerPoints.length > 0) {
             ctx.beginPath();
@@ -757,14 +717,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             ctx.fill();
         }
 
-        drawChartDetails(ctx, width, height, min, max, getX, pricesData, settings); // Draw grid lines, labels, legend.
+        drawChartDetails(ctx, width, height, min, max, getX, pricesData, settings);
 
-        const createPoints = (data, yFunc) => data.map((d, i) => d === null ? null : {x: getX(i), y: yFunc(d)}); // Helper to create line points.
-        drawDataLine(ctx, createPoints(prices, getY), '#3b82f6', 2); // Draw price line.
-        drawDataLine(ctx, createPoints(shortMA, getY), '#ef4444', 1.5); // Draw short MA.
-        drawDataLine(ctx, createPoints(longMA, getY), '#10b981', 1.5); // Draw long MA.
+        const createPoints = (data, yFunc) => data.map((d, i) => d === null ? null : {x: getX(i), y: yFunc(d)});
+        drawDataLine(ctx, createPoints(prices, getY), '#3b82f6', 2);
+        drawDataLine(ctx, createPoints(shortMA, getY), '#ef4444', 1.5);
+        drawDataLine(ctx, createPoints(longMA, getY), '#10b981', 1.5);
         
-        // Draw Bollinger Bands Lines.
+        // Bollinger Bands Lines
         drawDataLine(ctx, createPoints(bb.upper, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
         drawDataLine(ctx, createPoints(bb.lower, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
         
@@ -776,41 +736,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (s.type === 'buy') {
                 lastBuySignal = s;
                 ctx.beginPath();
-                ctx.fillStyle = '#22c55e'; // Green circle for buy.
+                ctx.fillStyle = '#22c55e'; // Solid Green circle for buy
                 ctx.arc(x, y, 5, 0, 2 * Math.PI);
                 ctx.fill();
             } else if (s.type === 'sell') {
-                // If SL/TP is enabled and it's a sell, draw SL/TP lines for the past trade.
                 if (lastBuySignal && settings.useSLTP) {
                     const stopLossLevel = getY(lastBuySignal.price * (1 - settings.stopLoss / 100));
                     const takeProfitLevel = getY(lastBuySignal.price * (1 + settings.takeProfit / 100));
                     drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: stopLossLevel}, {x: x, y: stopLossLevel}], '#ef4444', 1, true);
                     drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: takeProfitLevel}, {x: x, y: takeProfitLevel}], '#22c55e', 1, true);
-                    lastBuySignal = null; // Reset last buy signal after a sell.
+                    lastBuySignal = null;
                 }
 
                 ctx.beginPath();
-                // Draw different shapes for different sell reasons.
                 if (s.reason === 'stop_loss') {
-                    ctx.fillStyle = '#ef4444'; // Red triangle for stop-loss.
+                    ctx.fillStyle = '#ef4444'; // Red triangle
                     ctx.moveTo(x, y + 6); ctx.lineTo(x-6, y-3); ctx.lineTo(x+6, y-3); ctx.closePath();
                 } else if (s.reason === 'take_profit') {
-                    ctx.fillStyle = '#22c55e'; // Green triangle for take-profit.
+                    ctx.fillStyle = '#22c55e'; // Green triangle
                     ctx.moveTo(x, y - 6); ctx.lineTo(x-6, y+3); ctx.lineTo(x+6, y+3); ctx.closePath();
                 } else { // death_cross
-                    ctx.fillStyle = '#ef4444'; // Red square for death cross.
+                    ctx.fillStyle = '#ef4444'; // Red square
                     ctx.rect(x-4, y-4, 8, 8);
                 }
                 ctx.fill();
             }
         });
 
-        // Handle hover information display.
         if (hoverInfo && hoverInfo.x !== -1) {
-            drawCrosshair(ctx, hoverInfo.x, hoverInfo.y, width, height); // Draw crosshair.
-            const i = Math.round(hoverInfo.x / xScale); // Get data index under cursor.
+            drawCrosshair(ctx, hoverInfo.x, hoverInfo.y, width, height);
+            const i = Math.round(hoverInfo.x / xScale);
             if (pricesData[i]) {
-                // Populate hover box with price and MA info.
                 const infoHtml = `<strong>Date:</strong> ${new Date(pricesData[i].date).toLocaleDateString()}<br>
                                   <strong>Price:</strong> $${formatNumber(prices[i])}<br>
                                   <strong>Short MA:</strong> ${shortMA[i] ? '$' + formatNumber(shortMA[i]) : 'N/A'}<br>
@@ -820,16 +776,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showHoverBox(hoverInfo.box, infoHtml, hoverInfo.x, hoverInfo.y, canvas);
             }
         } else if (hoverInfo) {
-            hideHoverBox(hoverInfo.box); // Hide hover box when not hovering.
+            hideHoverBox(hoverInfo.box);
         }
     }
 
-    // Draws grid lines, Y-axis labels, X-axis labels, and a legend on a chart.
     function drawChartDetails(ctx, width, height, min, max, getX, pricesData, settings) {
-        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.5; // Grid line style.
-        ctx.font = '10px Inter'; ctx.fillStyle = '#6b7280'; // Label font and color.
+        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.5;
+        ctx.font = '10px Inter'; ctx.fillStyle = '#6b7280';
 
-        // Draw Y-axis grid lines and labels.
         const numYLabels = 5;
         for (let i = 0; i <= numYLabels; i++) {
             const y = (height / numYLabels) * i;
@@ -838,7 +792,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ctx.textAlign = 'right'; ctx.fillText(`$${formatNumber(price)}`, width - 5, y - 5);
         }
         
-        // Draw X-axis grid lines and labels.
         const numXLabels = Math.min(Math.floor(width / 100), pricesData.length);
         if (pricesData.length > 1 && numXLabels > 1) {
             for (let i = 0; i < numXLabels; i++) {
@@ -849,7 +802,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // Draw legend.
         let legend = [{c: '#3b82f6', t: 'Price'}, {c: '#ef4444', t: 'Short MA'}, {c: '#10b981', t: 'Long MA'}];
         if(settings.useSLTP) {
              legend.push({c: '#ef4444', t: 'Stop-Loss', dashed: true}, {c: '#22c55e', t: 'Take-Profit', dashed: true});
@@ -878,29 +830,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
-    // Draws the RSI (Relative Strength Index) chart.
     function drawRSIChart(ctx, width, height, rsiData, settings, hoverInfo) {
-        ctx.clearRect(0, 0, width, height); // Clear canvas.
+        ctx.clearRect(0, 0, width, height);
         if (rsiData.length === 0) return;
 
-        const xScale = width / (rsiData.length - 1 || 1); // X-axis scale.
-        const yScale = height / 100; // Y-axis scale (RSI typically ranges from 0 to 100).
+        const xScale = width / (rsiData.length - 1 || 1);
+        const yScale = height / 100;
         const getX = i => i * xScale;
-        const getY = val => height - (val * yScale); // Invert Y for canvas.
+        const getY = val => height - (val * yScale);
 
-        // Draw overbought and oversold regions.
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.05)'; // Overbought area (red tint).
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.05)';
         ctx.fillRect(0, 0, width, getY(settings.rsiOverbought));
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.05)'; // Oversold area (green tint).
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.05)';
         ctx.fillRect(0, getY(settings.rsiOversold), width, height);
         
         ctx.font = '10px Inter'; ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right';
-        ctx.fillText(settings.rsiOverbought, width - 5, getY(settings.rsiOverbought) + 10); // Label overbought level.
-        ctx.fillText(settings.rsiOversold, width - 5, getY(settings.rsiOversold) - 2); // Label oversold level.
+        ctx.fillText(settings.rsiOverbought, width - 5, getY(settings.rsiOverbought) + 10);
+        ctx.fillText(settings.rsiOversold, width - 5, getY(settings.rsiOversold) - 2);
 
-        drawDataLine(ctx, rsiData.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}), '#4f46e5', 1.5); // Draw RSI line.
+        drawDataLine(ctx, rsiData.map((d, i) => d === null ? null : {x: getX(i), y: getY(d)}), '#4f46e5', 1.5);
         
-        // Add RSI value to hover info box.
         if (hoverInfo && hoverInfo.x !== -1) {
             drawCrosshair(ctx, hoverInfo.x, hoverInfo.y, width, height);
             const i = Math.round(hoverInfo.x / xScale);
@@ -914,34 +863,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Draws the Volume chart with volume bars and a moving average of volume.
     function drawVolumeChart(canvas, pricesData, volumeSMA, hoverInfo) {
         const { ctx, width, height } = setupCanvas(canvas);
-        ctx.clearRect(0, 0, width, height); // Clear canvas.
+        ctx.clearRect(0, 0, width, height);
 
-        const volume = pricesData.map(d => d.volume); // Extract volume data.
-        if(volume.length === 0 || volume.every(v => v === 0)) return; // Don't draw if no volume data.
+        const volume = pricesData.map(d => d.volume);
+        if(volume.length === 0 || volume.every(v => v === 0)) return;
 
-        const maxVolume = Math.max(...volume); // Find max volume for scaling.
-        const xScale = width / (volume.length - 1 || 1); // X-axis scale.
-        const yScale = height / maxVolume; // Y-axis scale.
+        const maxVolume = Math.max(...volume);
+        const xScale = width / (volume.length - 1 || 1);
+        const yScale = height / maxVolume;
 
         const getX = i => i * xScale;
-        const getY = v => height - (v * yScale); // Invert Y for canvas.
+        const getY = v => height - (v * yScale);
 
-        // Draw Volume Bars.
-        const barWidth = width / volume.length * 0.8; // Calculate bar width.
+        // Draw Volume Bars
+        const barWidth = width / volume.length * 0.8;
         volume.forEach((v, i) => {
-            // Color bars based on price change (green for up, red for down).
             ctx.fillStyle = i > 0 && pricesData[i].price < pricesData[i-1].price ? 'rgba(239, 68, 68, 0.6)' : 'rgba(34, 197, 94, 0.6)';
             ctx.fillRect(getX(i) - barWidth / 2, getY(v), barWidth, v * yScale);
         });
 
-        // Draw Volume SMA (Simple Moving Average of Volume).
+        // Draw Volume SMA
         const createPoints = (data, yFunc) => data.map((d, i) => d === null ? null : {x: getX(i), y: yFunc(d)});
         drawDataLine(ctx, createPoints(volumeSMA, getY), 'rgba(55, 65, 81, 0.8)', 1.5);
 
-         // Add volume value to hover info box.
          if (hoverInfo && hoverInfo.x !== -1) {
             const i = Math.round(hoverInfo.x / xScale);
             if (pricesData[i]) {
@@ -954,47 +900,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // Generic function to draw a data line on a canvas.
     function drawDataLine(ctx, points, color, width, isDashed = false) {
         ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width;
-        if(isDashed) ctx.setLineDash([5, 5]); else ctx.setLineDash([]); // Set dashed line style if requested.
+        if(isDashed) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
         let first = true;
         points.forEach(p => {
-            if (p !== null) { // Only draw if point is not null.
+            if (p !== null) {
                 first ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
                 first = false;
             } else {
-                first = true; // Reset 'first' if a null point is encountered.
+                first = true;
             }
         });
-        ctx.stroke(); // Draw the line.
-        ctx.setLineDash([]); // Reset line dash to solid.
+        ctx.stroke();
+        ctx.setLineDash([]);
     }
     
-    // Draws a crosshair on the chart at the given coordinates.
     function drawCrosshair(ctx, x, y, width, height) {
-        ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 0.5; // Crosshair style.
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); // Vertical line.
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); // Horizontal line.
+        ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
     }
 
-    // Displays a hover information box near the cursor.
     function showHoverBox(box, html, x, y, canvas) {
         if(!box) return;
-        box.innerHTML = html; // Set content of the hover box.
-        box.style.display = 'block'; // Make it visible.
-        const rect = canvas.getBoundingClientRect(); // Get canvas position.
-        let left = rect.left + window.scrollX + x + 15; // Calculate left position.
-        let top = rect.top + window.scrollY + y - box.offsetHeight / 2; // Calculate top position.
-        // Adjust position if it goes off-screen to the right.
+        box.innerHTML = html;
+        box.style.display = 'block';
+        const rect = canvas.getBoundingClientRect();
+        let left = rect.left + window.scrollX + x + 15;
+        let top = rect.top + window.scrollY + y - box.offsetHeight / 2;
         if (left + box.offsetWidth > window.innerWidth) left = rect.left + window.scrollX + x - box.offsetWidth - 15;
         box.style.left = `${left}px`;
         box.style.top = `${top}px`;
     }
-    const hideHoverBox = box => { if(box) box.style.display = 'none'; }; // Hides the hover info box.
+    const hideHoverBox = box => { if(box) box.style.display = 'none'; };
 
     // --- Simulation & Optimization Logic ---
-    // Retrieves current settings from the UI input fields.
     function getSettings() {
         return {
             initialInvestment: parseFloat(elements.initialInvestment.value),
@@ -1019,15 +960,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // Renders the performance results of a strategy simulation.
     function renderPerformanceResults(container, perf, settings) {
-        const netProfit = perf.finalValue - settings.initialInvestment; // Calculate net profit.
-        const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600'; // Determine color based on profit/loss.
-        const trades = perf.signals.filter(s => s.type === 'sell'); // Count completed trades.
-        const totalProfit = perf.preTaxFinalValue - settings.initialInvestment; // Gross profit.
-        const fee = totalProfit > 0 ? totalProfit * (settings.serviceFee / 100) : 0; // Calculate service fees.
-        const taxableProfit = totalProfit > 0 ? totalProfit - fee : 0; // Calculate taxable profit.
-        const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0; // Calculate tax.
+        const netProfit = perf.finalValue - settings.initialInvestment;
+        const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
+        const trades = perf.signals.filter(s => s.type === 'sell');
+        const totalProfit = perf.preTaxFinalValue - settings.initialInvestment;
+        const fee = totalProfit > 0 ? totalProfit * (settings.serviceFee / 100) : 0;
+        const taxableProfit = totalProfit > 0 ? totalProfit - fee : 0;
+        const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
 
         showResults(container, `
             <h3>Results:</h3>
@@ -1040,69 +980,87 @@ document.addEventListener('DOMContentLoaded', async () => {
         `);
     }
     
-    // Runs a single strategy simulation based on current settings.
-    function runSimulation() {
-        const settings = getSettings(); // Get current strategy settings.
-        filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate); // Filter historical data.
-        updateDataPreviewTable(filteredPrices); // Update data preview.
+    // --- Main Drawing Functions ---
+    function drawCurrentCharts(hoverInfo) {
+        if (!currentStrategyData) return;
+        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = currentStrategyData;
+        drawChart(elements.currentChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo);
         
-        // Check if there's enough data for calculations.
+        const { ctx, width, height } = setupCanvas(elements.rsiChartCanvas);
+        drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
+        
+        drawVolumeChart(elements.volumeChartCanvas, prices, volumeSMA, hoverInfo);
+    }
+
+    function drawRsiFilteredCharts(hoverInfo) {
+        if (!rsiFilteredStrategyData) return;
+        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = rsiFilteredStrategyData;
+        drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo);
+        
+        const { ctx, width, height } = setupCanvas(elements.rsiFilteredRsiChartCanvas);
+        drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
+
+        drawVolumeChart(elements.filteredVolumeChartCanvas, prices, volumeSMA, hoverInfo);
+    }
+    
+    function runSimulation() {
+        const settings = getSettings();
+        filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate);
+        updateDataPreviewTable(filteredPrices);
+        
         const maxPeriod = Math.max(settings.longPeriod, settings.rsiPeriod, settings.bbPeriod, settings.volumeMAPeriod);
         if (filteredPrices.length < maxPeriod) {
             showResults(elements.currentSimulationResults, `<div class="warning-message">Not enough data. Need ${maxPeriod}, have ${filteredPrices.length}.</div>`);
             return;
         }
 
-        // Calculate technical indicators.
         const shortMA = calculateSMA(filteredPrices, settings.shortPeriod, 'price');
         const longMA = calculateSMA(filteredPrices, settings.longPeriod, 'price');
         const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
         const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
         const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
         
-        // Run and store normal simulation data.
+        // Normal simulation data
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
         renderPotentialSellScenarios(performance, settings, document.getElementById('currentPotentialSellScenariosContainer'), filteredPrices);
 
 
-        // Run and store RSI-Filtered simulation data (with all filters forcibly enabled).
+        // RSI-Filtered simulation data
         const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true, useVolumeFilter: true};
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
         renderPotentialSellScenarios(fullyFilteredPerformance, fullyFilteredSettings, document.getElementById('filteredPotentialSellScenariosContainer'), filteredPrices);
 
-        // Draw charts initially without hover.
+        // Initial draw without hover
         drawCurrentCharts(null);
         drawRsiFilteredCharts(null);
     }
     
-    // Finds the optimum strategy either manually or comprehensively.
     function findOptimum(isComprehensive = false) {
-        const settings = getSettings(); // Get current settings.
-        filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate); // Filter data.
-        const container = isComprehensive ? elements.comprehensiveOptimizationResults : elements.optimizationResults; // Select results container.
-        const spinner = isComprehensive ? elements.comprehensiveOptimizationSpinner : elements.optimizationSpinner; // Select spinner.
+        const settings = getSettings();
+        filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate);
+        const container = isComprehensive ? elements.comprehensiveOptimizationResults : elements.optimizationResults;
+        const spinner = isComprehensive ? elements.comprehensiveOptimizationSpinner : elements.optimizationSpinner;
         
-        showSpinner(spinner); // Show spinner.
-        showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>"); // Display optimization message.
-        elements.aiAnalysisContainer.classList.add('hidden'); // Hide AI analysis section.
-        elements.aiAnalysisResultBox.classList.add('hidden'); // Hide AI analysis result box.
-        elements.potentialSellScenariosContainer.classList.add('hidden'); // Hide potential sell scenarios.
+        showSpinner(spinner);
+        showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
+        elements.aiAnalysisContainer.classList.add('hidden');
+        elements.aiAnalysisResultBox.classList.add('hidden');
+        elements.potentialSellScenariosContainer.classList.add('hidden');
 
 
-        setTimeout(() => { // Use setTimeout to allow UI to update before heavy computation.
+        setTimeout(() => {
             let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
             let bestSettings = {};
-            // Pre-calculate RSI, BB, Volume SMA once for efficiency.
             const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
             const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
             const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
 
             const loopRunner = () => {
-                if (isComprehensive) { // Comprehensive optimization.
+                if (isComprehensive) {
                     const maxShortComprehensive = 30;
                     const maxLongComprehensive = 100;
                      if (maxLongComprehensive > filteredPrices.length) {
@@ -1111,18 +1069,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return;
                     }
 
-                    // Loop through all 16 combinations of filters (2^4 possibilities for 4 filters).
+                    // Loop through all 16 combinations of filters
                     for (let i = 0; i < 16; i++) {
                         const currentFilterSettings = {
-                            useSLTP: (i & 8) > 0, // Bitwise operations to enable/disable filters.
+                            useSLTP: (i & 8) > 0,
                             useRsiFilter: (i & 4) > 0,
                             useBBFilter: (i & 2) > 0,
                             useVolumeFilter: (i & 1) > 0,
                         };
 
                         for (let short = 2; short <= maxShortComprehensive; short++) {
-                            for (let long = short + 1; long <= maxLongComprehensive; long++) { // Long MA must be > Short MA.
-                                runTest(short, long, currentFilterSettings); // Run simulation for each combination.
+                            for (let long = short + 1; long <= maxLongComprehensive; long++) {
+                                runTest(short, long, currentFilterSettings);
                             }
                         }
                     }
@@ -1140,19 +1098,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     for (let short = minShort; short <= maxShort; short++) {
                         for (let long = minLong; long <= maxLong; long++) {
                             if (short >= long) continue;
-                            runTest(short, long, settings); // Use UI settings for manual optimization.
+                            runTest(short, long, settings); // Use UI settings for manual
                         }
                     }
                 }
             }
 
-            // Helper function to run a single test simulation and update best performance.
             const runTest = (short, long, filterSettings) => {
                 const testSettings = { ...settings, ...filterSettings, shortPeriod: short, longPeriod: long };
                 const shortMA = calculateSMA(filteredPrices, short, 'price');
                 const longMA = calculateSMA(filteredPrices, long, 'price');
                 const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, testSettings);
-                if (perf.finalValue > bestPerf.finalValue) { // Update if current test is better.
+                if (perf.finalValue > bestPerf.finalValue) {
                     bestPerf = perf; 
                     bestShort = short; 
                     bestLong = long;
@@ -1160,13 +1117,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             };
             
-            loopRunner(); // Start the optimization loops.
+            loopRunner();
 
-            hideSpinner(spinner); // Hide spinner.
-            const netProfit = bestPerf.finalValue - settings.initialInvestment; // Calculate net profit of best strategy.
+            hideSpinner(spinner);
+            const netProfit = bestPerf.finalValue - settings.initialInvestment;
             const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
             
-            // Format enabled filters for display.
             let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => k.replace('use', '')).join(', ');
             if(!enabledFilters) enabledFilters = "None";
 
@@ -1179,7 +1135,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
             `);
 
-            // Display the chart for the optimum strategy.
             const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimizationResults;
             const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
             chartSection.classList.remove('hidden');
@@ -1187,7 +1142,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
             
             if(isComprehensive){
-                // Store comprehensive data and render trade log, potential sell scenarios, and AI analysis option.
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTradesTable(bestPerf, bestSettings);
@@ -1195,12 +1149,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
-                // Store manual optimum data.
                 optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings);
             }
 
-            // Update UI with the best parameters found.
             elements.shortMA.value = bestShort;
             elements.longMA.value = bestLong;
             Object.keys(bestSettings).forEach(key => {
@@ -1209,19 +1161,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
 
-            runSimulation(); // Re-run the simulation with the optimal parameters to update current charts.
-        }, 10); // Small delay to allow spinner to show.
+            runSimulation();
+        }, 10);
     }
     
-    // Renders a detailed trade log table and summary.
     function renderTradesTable(perf, settings) {
         const signals = perf.signals;
         const pricesData = filteredPrices;
-        elements.comprehensiveTradesTableBody.innerHTML = ''; // Clear existing table rows.
+        elements.comprehensiveTradesTableBody.innerHTML = '';
         
         const trades = [];
         let buySignal = null;
-        // Pair buy and sell signals to form complete trades.
         for (const signal of signals) {
             if (signal.type === 'buy') {
                 buySignal = signal;
@@ -1231,24 +1181,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // Show/hide trade log and summary based on whether trades exist.
         elements.comprehensiveTradesTableContainer.classList.toggle('hidden', trades.length === 0);
         elements.comprehensiveTradesSummaryContainer.classList.toggle('hidden', trades.length === 0);
 
         if(trades.length > 0){
             let totalGrossProfit = 0;
             trades.forEach(trade => {
-                totalGrossProfit += trade.sell.grossProfit; // Accumulate gross profit.
+                totalGrossProfit += trade.sell.grossProfit;
                 const row = elements.comprehensiveTradesTableBody.insertRow();
                 row.insertCell().textContent = new Date(pricesData[trade.buy.index].date).toLocaleDateString();
                 row.insertCell().textContent = `${trade.buy.btc.toFixed(6)}`;
                 row.insertCell().textContent = new Date(pricesData[trade.sell.index].date).toLocaleDateString();
                 const grossCell = row.insertCell();
                 grossCell.textContent = `$${formatNumber(trade.sell.grossProfit)}`;
-                grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600'; // Color profit/loss.
+                grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
             });
             
-            // Calculate fees, tax, and net profit for the trade summary.
             const fee = totalGrossProfit > 0 ? totalGrossProfit * (settings.serviceFee / 100) : 0;
             const taxableProfit = totalGrossProfit > 0 ? totalGrossProfit - fee : 0;
             const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
@@ -1265,13 +1213,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Renders potential sell scenarios if there is an open position at the end of the simulation.
     function renderPotentialSellScenarios(perf, settings, container, prices) {
         if (!container || !prices || prices.length === 0) return;
-        container.classList.add('hidden'); // Hide by default.
+        container.classList.add('hidden'); // Hide by default
 
-        if (perf.inPositionAtEnd) { // Check if there's an open position.
-            const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop(); // Get the last buy signal.
+        if (perf.inPositionAtEnd) {
+            const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop();
             if (!lastBuySignal) return;
 
             const buyPrice = lastBuySignal.price;
@@ -1279,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const cashInvested = buyPrice * btcAmount;
             const lastPrice = prices[prices.length - 1].price;
             const currentValue = lastPrice * btcAmount;
-            const currentGrossProfit = currentValue - cashInvested; // Current gross profit if sold now.
+            const currentGrossProfit = currentValue - cashInvested;
 
 
             let scenariosHTML = `
@@ -1293,7 +1240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <br>Approx. Gross P/L: <span class="font-bold ${currentGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(currentGrossProfit)}</span>
                 </li>`;
 
-            if (settings.useSLTP) { // Display Stop-Loss and Take-Profit scenarios if enabled.
+            if (settings.useSLTP) {
                 const slPrice = buyPrice * (1 - settings.stopLoss / 100);
                 const slValue = slPrice * btcAmount;
                 const slGrossProfit = slValue - cashInvested;
@@ -1318,13 +1265,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <strong>Death Cross:</strong> Sell if the <strong>${settings.shortPeriod}-day MA</strong> crosses below the <strong>${settings.longPeriod}-day MA</strong>. The exact price depends on future market movement.
                 </li>`;
 
-            if (settings.useBBFilter) { // Display Bollinger Band sell condition if enabled.
+            if (settings.useBBFilter) {
                  scenariosHTML += `
                     <li>
                         <strong>Bollinger Band:</strong> Sell if the price moves above the middle band (the <strong>${settings.bbPeriod}-day MA</strong>).
                     </li>`;
             }
-            if (settings.useVolumeFilter) { // Display Volume filter sell condition if enabled.
+            if (settings.useVolumeFilter) {
                  scenariosHTML += `
                     <li>
                         <strong>Volume:</strong> A Death Cross signal would also need to be confirmed by a daily volume greater than the <strong>${settings.volumeMAPeriod}-day average volume</strong>.
@@ -1332,27 +1279,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             scenariosHTML += '</ul>';
-            showResults(container, scenariosHTML); // Display scenarios.
+            showResults(container, scenariosHTML);
         }
     }
     
-    // Analyzes the comprehensive optimum strategy using a generative AI model.
     async function analyzeStrategyWithAI() {
         if (!comprehensiveStrategyData) {
-            alert("Please run a Comprehensive Optimization first."); // Require optimization to be run.
+            alert("Please run a Comprehensive Optimization first.");
             return;
         }
 
         const { settings, performance, prices } = comprehensiveStrategyData;
         const resultBox = elements.aiAnalysisResultBox;
-        resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>'; // Show loading message.
+        resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
         resultBox.classList.remove('hidden');
 
         const { finalValue } = performance;
         const netProfit = finalValue - settings.initialInvestment;
         const numTrades = performance.signals.filter(s => s.type === 'sell').length;
 
-        // Construct a descriptive string of the enabled filters.
         const filters = [
             `Stop-Loss/Take-Profit: ${settings.useSLTP ? `Enabled (${settings.stopLoss}% / ${settings.takeProfit}%)` : 'Disabled'}`,
             `RSI Filter: ${settings.useRsiFilter ? `Enabled (Period: ${settings.rsiPeriod}, Levels: ${settings.rsiOversold}/${settings.rsiOverbought})` : 'Disabled'}`,
@@ -1360,7 +1305,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             `Volume Filter: ${settings.useVolumeFilter ? `Enabled (MA Period: ${settings.volumeMAPeriod})` : 'Disabled'}`
         ].join('\n- ');
 
-        // Construct the prompt for the AI model.
         let prompt = `You are a helpful trading strategy analyst.
 
         Based on the following **optimized** trading strategy parameters and its performance results for Bitcoin (BTC/USD), provide a concise analysis.
@@ -1386,7 +1330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         Do not give financial advice. The analysis should be based *only* on the provided data.`;
         
-        if (performance.inPositionAtEnd) { // Add context about an open position if applicable.
+        if (performance.inPositionAtEnd) {
             const lastBuySignal = performance.signals.filter(s => s.type === 'buy').pop();
             if (lastBuySignal) {
                 const buyPrice = lastBuySignal.price;
@@ -1427,18 +1371,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const payload = { contents: chatHistory };
             const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key will be handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            // Make an API call to the Gemini 2.0 Flash model.
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const result = await response.json(); // Parse the JSON response.
+            const result = await response.json();
             
-            // Extract and display the AI's analysis.
             if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
                 let text = result.candidates[0].content.parts[0].text;
-                text = text.replace(/```html|```/g, ''); // Remove markdown code block fences.
+                text = text.replace(/```html|```/g, '');
                 resultBox.innerHTML = `<h4>✨ AI Strategy Analysis</h4>${text}`;
             } else {
                  resultBox.innerHTML = `<p class="text-red-500">Could not retrieve AI analysis. The response was empty.</p>`;
@@ -1449,7 +1391,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // Resets all strategy parameters to their default values.
     function setDefaults() {
         Object.keys(defaultSettings).forEach(key => {
             if(elements[key] && elements[key].type === 'checkbox') {
@@ -1458,38 +1399,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                 elements[key].value = defaultSettings[key];
             }
         });
-        runSimulation(); // Re-run simulation after resetting.
+        runSimulation();
     }
 
-    // Sets up all event listeners for user interactions.
     function setupEventListeners() {
-        elements.runSimulationBtn.addEventListener('click', runSimulation); // Run simulation on button click.
-        elements.findOptimumBtn.addEventListener('click', () => findOptimum(false)); // Manual optimization.
-        elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true)); // Comprehensive optimization.
-        elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI); // AI analysis.
-        elements.resetToDefaultsBtn.addEventListener('click', setDefaults); // Reset to defaults.
-        elements.patternSelector.addEventListener('change', () => { // Change pattern visualization.
+        elements.runSimulationBtn.addEventListener('click', runSimulation);
+        elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
+        elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
+        elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
+        elements.resetToDefaultsBtn.addEventListener('click', setDefaults);
+        elements.patternSelector.addEventListener('change', () => {
             const selectedPatternKey = elements.patternSelector.value;
             const pattern = patternData[selectedPatternKey];
             drawPatternChart(pattern.data, pattern.name);
         });
         
-        // Helper to create hover listeners for charts.
         const createHoverListener = (container, redrawFn, getHoverBox) => {
              if (!container) return;
              container.addEventListener('mousemove', e => {
                 const rect = container.querySelector('canvas').getBoundingClientRect();
-                // Redraw the chart with hover info.
                 redrawFn({x: e.clientX - rect.left, y: e.clientY - rect.top, box: getHoverBox()});
             });
             container.addEventListener('mouseout', () => {
-                redrawFn(null); // Redraw without hover info.
+                redrawFn(null);
                 const hoverBox = getHoverBox();
-                if(hoverBox) hideHoverBox(hoverBox); // Hide hover box.
+                if(hoverBox) hideHoverBox(hoverBox);
             });
         };
 
-        // Apply hover listeners to all relevant chart sections.
         createHoverListener(elements.currentSimulationSection, drawCurrentCharts, () => elements.hoverInfoBox);
         createHoverListener(elements.rsiFilteredSimulationSection, drawRsiFilteredCharts, () => elements.rsiFilteredHoverInfoBox);
 
@@ -1506,35 +1443,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, () => elements.comprehensiveHoverInfoBox);
     }
 
-    // Initializes the application: fetches data, sets default dates, runs initial simulation, and sets up event listeners.
     async function initialize() {
-        defaultSettings = getSettings(); // Save initial settings as defaults.
-        historicalPrices = await fetchCSV('./btc-usd-max.csv'); // Fetch historical BTC data.
+        defaultSettings = getSettings();
+        historicalPrices = await fetchCSV('./btc-usd-max.csv');
         if (historicalPrices.length > 0) {
-            // Set default date range to the last year of available data.
             const lastDate = new Date(historicalPrices[historicalPrices.length - 1].date);
             elements.endDate.value = lastDate.toISOString().split('T')[0];
             const oneYearAgo = new Date(lastDate);
             oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
             elements.startDate.value = oneYearAgo.toISOString().split('T')[0];
-            runSimulation(); // Run initial simulation.
+            runSimulation();
         }
-        setupEventListeners(); // Set up all UI event listeners.
+        setupEventListeners();
         window.addEventListener('resize', () => {
-            // Redraw charts on window resize to adjust for new dimensions.
+            // Redraw all charts on resize
             runSimulation();
             const selectedPatternKey = elements.patternSelector.value;
             const pattern = patternData[selectedPatternKey];
             drawPatternChart(pattern.data, pattern.name);
         });
 
-        // Initial draw for the selected pattern chart.
+        // Initial draw for pattern chart
         const initialPatternKey = elements.patternSelector.value;
         const initialPattern = patternData[initialPatternKey];
         drawPatternChart(initialPattern.data, initialPattern.name);
     }
 
-    initialize(); // Call the initialization function when the DOM is ready.
+    initialize();
 });
 </script>
 </body>
