@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.1 -->
+    <!-- Version: 13.2 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -282,6 +282,7 @@
                 <div id="comprehensiveTradesTableContainer" class="mt-4"></div>
                  <div id="comprehensiveTradesSummaryContainer" class="results-box mt-4 hidden"></div>
                  <div id="comprehensiveNextDayAnalysisContainer" class="results-box mt-4 hidden"></div>
+                 <div id="comprehensivePracticalExamples" class="explanation-box mt-4 hidden"></div>
             </div>
         </div>
 
@@ -431,6 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comprehensiveNextDayAnalysisContainer: document.getElementById('comprehensiveNextDayAnalysisContainer'),
         currentNextDayAnalysisContainer: document.getElementById('currentNextDayAnalysisContainer'),
         filteredNextDayAnalysisContainer: document.getElementById('filteredNextDayAnalysisContainer'),
+        comprehensivePracticalExamples: document.getElementById('comprehensivePracticalExamples'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
@@ -1021,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
-        renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices);
+        renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi);
         renderTransactionTable(elements.currentTransactionsContainer, performance, settings, filteredPrices);
 
 
@@ -1030,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
-        renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices);
+        renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi);
         renderTransactionTable(elements.rsiFilteredTransactionsContainer, fullyFilteredPerformance, fullyFilteredSettings, filteredPrices);
 
         // Initial draw without hover
@@ -1049,6 +1051,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.aiAnalysisContainer.classList.add('hidden');
         elements.aiAnalysisResultBox.classList.add('hidden');
         elements.comprehensiveNextDayAnalysisContainer.classList.add('hidden');
+        elements.comprehensivePracticalExamples.classList.add('hidden');
 
 
         setTimeout(() => {
@@ -1144,7 +1147,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
-                renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices);
+                renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices, bestShortMA, bestLongMA, rsi);
+                renderPracticalExamples(bestPerf, bestSettings, elements.comprehensivePracticalExamples, filteredPrices);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
@@ -1258,22 +1262,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function calculateNextDayTriggers(prices, perf, settings) {
-        if (!prices || prices.length === 0) return null;
+        if (!prices || prices.length < settings.longPeriod) return null;
 
         const triggers = {};
 
         // --- Crossover Price Calculation ---
         const short = settings.shortPeriod;
         const long = settings.longPeriod;
-        if (prices.length >= long) {
-            const sumShort = prices.slice(-short + 1).reduce((sum, p) => sum + p.price, 0);
-            const sumLong = prices.slice(-long + 1).reduce((sum, p) => sum + p.price, 0);
-            // P = (L*sumS - S*sumL) / (S - L)
-            const crossoverPrice = (long * sumShort - short * sumLong) / (short - long);
-            triggers.crossoverPrice = crossoverPrice;
-        }
+        
+        const sumShort = prices.slice(-short + 1).reduce((sum, p) => sum + p.price, 0);
+        const sumLong = prices.slice(-long + 1).reduce((sum, p) => sum + p.price, 0);
+        // P = (L*sumS - S*sumL) / (S - L)
+        const crossoverPrice = (long * sumShort - short * sumLong) / (short - long);
+        triggers.crossoverPrice = crossoverPrice;
 
-        if (perf.inPositionAtEnd) { // --- SELL TRIGGERS ---
+        if (perf.inPositionAtEnd) { // --- Currently in a position ---
             const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop();
             if (lastBuySignal) {
                 triggers.buyPrice = lastBuySignal.price;
@@ -1283,23 +1286,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     triggers.takeProfitPrice = lastBuySignal.price * (1 + settings.takeProfit / 100);
                 }
             }
-            if (settings.useBBFilter && prices.length >= settings.bbPeriod) {
-                const sumBB = prices.slice(-settings.bbPeriod + 1).reduce((sum, p) => sum + p.price, 0);
-                // P > (sumBB + P) / K  => K*P > sumBB + P => (K-1)P > sumBB => P > sumBB / (K-1)
-                triggers.bbSellPrice = sumBB / (settings.bbPeriod - 1);
-            }
-
-        } else { // --- BUY TRIGGERS ---
-            if (settings.useBBFilter && prices.length >= settings.bbPeriod) {
-                const sumBB = prices.slice(-settings.bbPeriod + 1).reduce((sum, p) => sum + p.price, 0);
-                // P < (sumBB + P) / K => P < sumBB / (K-1)
-                triggers.bbBuyPrice = sumBB / (settings.bbPeriod - 1);
-            }
+        } 
+        
+        // --- Always calculate BB price regardless of position ---
+        if (settings.useBBFilter && prices.length >= settings.bbPeriod) {
+            const sumBB = prices.slice(-settings.bbPeriod + 1).reduce((sum, p) => sum + p.price, 0);
+            // P_buy < (sumBB + P_buy) / K => P_buy < sumBB / (K-1)
+            // P_sell > (sumBB + P_sell) / K => P_sell > sumBB / (K-1)
+            const bbPrice = sumBB / (settings.bbPeriod - 1);
+            triggers.bbBuyPrice = bbPrice;
+            triggers.bbSellPrice = bbPrice;
         }
+
         return triggers;
     }
 
-    function renderNextDayTriggerAnalysis(perf, settings, container, prices) {
+    function renderNextDayTriggerAnalysis(perf, settings, container, prices, shortMA, longMA, rsi) {
         if (!container || !prices || prices.length === 0) return;
         container.innerHTML = '';
         container.classList.add('hidden');
@@ -1307,58 +1309,106 @@ document.addEventListener('DOMContentLoaded', async () => {
         const triggers = calculateNextDayTriggers(prices, perf, settings);
         if (!triggers) return;
 
-        const lastPrice = prices[prices.length - 1].price;
-        let analysisHTML = '';
+        const lastIndex = prices.length - 1;
+        const lastPrice = prices[lastIndex].price;
+        const lastShortMA = shortMA[lastIndex];
+        const lastLongMA = longMA[lastIndex];
+        const lastRSI = rsi[lastIndex];
 
+        let analysisHTML = `
+            <h3>Next Day Trigger Analysis</h3>
+            <p class="description-box !mt-2 !mb-3">This section calculates the price needed for a buy or sell signal on the next day, based on the strategy's rules.</p>
+            
+            <table class="data-preview-table w-full mb-4">
+              <thead><tr><th>Indicator</th><th>Last Value</th></tr></thead>
+              <tbody>
+                <tr><td>Last Price</td><td>$${formatNumber(lastPrice)}</td></tr>
+                <tr><td>Short MA (${settings.shortPeriod})</td><td>$${formatNumber(lastShortMA)}</td></tr>
+                <tr><td>Long MA (${settings.longPeriod})</td><td>$${formatNumber(lastLongMA)}</td></tr>
+                <tr><td>RSI (${settings.rsiPeriod})</td><td>${formatNumber(lastRSI)}</td></tr>
+              </tbody>
+            </table>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        `;
+
+        // --- BUY Column ---
+        let buyHTML = `<div><h4 class="text-lg font-bold text-green-700 mb-2">Potential Buy Triggers</h4><ul class="list-disc pl-6 space-y-2">`;
+        if (triggers.crossoverPrice) {
+            buyHTML += `<li><strong>Golden Cross:</strong> Price must rise to ~<strong>$${formatNumber(triggers.crossoverPrice)}</strong>.</li>`;
+        }
+        if (settings.useBBFilter && triggers.bbBuyPrice) {
+            buyHTML += `<li><strong>Bollinger Band:</strong> Price must be below ~<strong>$${formatNumber(triggers.bbBuyPrice)}</strong>.</li>`;
+        }
+        if (settings.useRsiFilter) {
+            buyHTML += `<li><strong>RSI Filter:</strong> RSI must be below ${settings.rsiOverbought}. (Currently ${formatNumber(lastRSI)})</li>`;
+        }
+        buyHTML += `</ul></div>`;
+
+        // --- SELL Column ---
+        let sellHTML = `<div><h4 class="text-lg font-bold text-red-700 mb-2">Potential Sell Triggers</h4><ul class="list-disc pl-6 space-y-2">`;
         if (perf.inPositionAtEnd) {
-            // --- SELL ANALYSIS ---
-            const { buyPrice, btcAmount, stopLossPrice, takeProfitPrice, crossoverPrice, bbSellPrice } = triggers;
-            const currentGrossProfit = (lastPrice * btcAmount) - (buyPrice * btcAmount);
-
-            analysisHTML = `
-                <h3>Next Day Sell Triggers (Open Position)</h3>
-                <p class="description-box !mt-2 !mb-3">The simulation ended with an open position bought at <strong>$${formatNumber(buyPrice)}</strong>. Current unrealized P/L is <span class="font-bold ${currentGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(currentGrossProfit)}</span>. Based on the last price of <strong>$${formatNumber(lastPrice)}</strong>, here are the prices required for a sell signal tomorrow:</p>
-                <ul class="list-disc pl-6 space-y-2">`;
-
+            const { buyPrice, stopLossPrice, takeProfitPrice } = triggers;
+            sellHTML += `<li class="font-semibold">Currently in a position bought at $${formatNumber(buyPrice)}.</li>`;
             if (settings.useSLTP) {
-                analysisHTML += `<li><strong>Stop-Loss (${settings.stopLoss}%):</strong> Sell if price drops to ~<strong>$${formatNumber(stopLossPrice)}</strong>.</li>`;
-                analysisHTML += `<li><strong>Take-Profit (${settings.takeProfit}%):</strong> Sell if price rises to ~<strong>$${formatNumber(takeProfitPrice)}</strong>.</li>`;
-            }
-            if (crossoverPrice) {
-                 analysisHTML += `<li><strong>Death Cross:</strong> Sell if price drops to ~<strong>$${formatNumber(crossoverPrice)}</strong> to make the ${settings.shortPeriod}-day MA cross below the ${settings.longPeriod}-day MA.</li>`;
-            }
-            if (settings.useBBFilter && bbSellPrice) {
-                analysisHTML += `<li><strong>Bollinger Band:</strong> A Death Cross signal would also require the price to be above ~<strong>$${formatNumber(bbSellPrice)}</strong> (the next day's middle band). This may conflict with the Death Cross price.</li>`;
-            }
-             if (settings.useVolumeFilter) {
-                analysisHTML += `<li><strong>Volume Filter:</strong> Any MA crossover signal must be confirmed by a daily volume greater than its ${settings.volumeMAPeriod}-day average.</li>`;
-            }
-
-        } else {
-            // --- BUY ANALYSIS ---
-            const { crossoverPrice, bbBuyPrice } = triggers;
-
-            analysisHTML = `
-                <h3>Next Day Buy Triggers (No Position)</h3>
-                <p class="description-box !mt-2 !mb-3">The simulation ended with no open position. Based on the last price of <strong>$${formatNumber(lastPrice)}</strong>, here are the prices required for a buy signal tomorrow:</p>
-                <ul class="list-disc pl-6 space-y-2">`;
-
-            if (crossoverPrice) {
-                analysisHTML += `<li><strong>Golden Cross:</strong> Buy if price rises to ~<strong>$${formatNumber(crossoverPrice)}</strong> to make the ${settings.shortPeriod}-day MA cross above the ${settings.longPeriod}-day MA.</li>`;
-            }
-            if (settings.useBBFilter && bbBuyPrice) {
-                analysisHTML += `<li><strong>Bollinger Band:</strong> A Golden Cross signal would also require the price to be below ~<strong>$${formatNumber(bbBuyPrice)}</strong> (the next day's middle band).</li>`;
-            }
-            if (settings.useRsiFilter) {
-                analysisHTML += `<li><strong>RSI Filter:</strong> A Golden Cross signal also requires the RSI to be below ${settings.rsiOverbought}. The next day's RSI depends on the closing price.</li>`;
-            }
-            if (settings.useVolumeFilter) {
-                analysisHTML += `<li><strong>Volume Filter:</strong> Any MA crossover signal must be confirmed by a daily volume greater than its ${settings.volumeMAPeriod}-day average.</li>`;
+                sellHTML += `<li><strong>Stop-Loss:</strong> Price must drop to ~<strong>$${formatNumber(stopLossPrice)}</strong>.</li>`;
+                sellHTML += `<li><strong>Take-Profit:</strong> Price must rise to ~<strong>$${formatNumber(takeProfitPrice)}</strong>.</li>`;
             }
         }
-
-        analysisHTML += '</ul>';
+        if (triggers.crossoverPrice) {
+            sellHTML += `<li><strong>Death Cross:</strong> Price must drop to ~<strong>$${formatNumber(triggers.crossoverPrice)}</strong>.</li>`;
+        }
+        if (settings.useBBFilter && triggers.bbSellPrice) {
+             sellHTML += `<li><strong>Bollinger Band:</strong> Price must be above ~<strong>$${formatNumber(triggers.bbSellPrice)}</strong>.</li>`;
+        }
+        sellHTML += `</ul></div>`;
+        
+        analysisHTML += buyHTML + sellHTML + '</div>';
         showResults(container, analysisHTML);
+    }
+
+    function renderPracticalExamples(perf, settings, container, prices) {
+        if (!container || !prices || prices.length === 0) return;
+        container.classList.add('hidden');
+
+        const triggers = calculateNextDayTriggers(prices, perf, settings);
+        if (!triggers) return;
+
+        let examplesHTML = `
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Practical Examples for This Strategy</h3>
+            <p class="description-box">This is a hypothetical guide on how to interpret the 'Next Day Trigger' analysis for the optimal strategy found above.</p>
+        `;
+
+        if (perf.inPositionAtEnd) {
+            examplesHTML += `
+                <p><strong>Scenario: You are currently holding Bitcoin based on this strategy.</strong></p>
+                <ol class="list-decimal pl-6 mt-2 space-y-2">
+                    <li><strong>Defensive Play (Stop-Loss):</strong> Your primary risk management is the Stop-Loss. If the price drops to <strong>$${formatNumber(triggers.stopLossPrice)}</strong>, the strategy dictates a sell to limit losses, regardless of other indicators.</li>
+                    <li><strong>Profit-Taking Play:</strong> If the market rallies and hits <strong>$${formatNumber(triggers.takeProfitPrice)}</strong>, the strategy dictates a sell to lock in profits.</li>
+                    <li><strong>Trend-Change Play (Death Cross):</strong> If neither of the above happens, you watch for a trend reversal. A sell signal would occur if the price drops to <strong>$${formatNumber(triggers.crossoverPrice)}</strong>. This is the point where the short-term momentum (Short MA) would turn negative compared to the long-term trend (Long MA).</li>
+                </ol>
+            `;
+        } else {
+            examplesHTML += `
+                <p><strong>Scenario: You are currently in cash, waiting for a signal to buy.</strong></p>
+                <ol class="list-decimal pl-6 mt-2 space-y-2">
+                    <li><strong>Primary Buy Signal (Golden Cross):</strong> The main condition to enter a trade is for the price to rise to <strong>$${formatNumber(triggers.crossoverPrice)}</strong>. This would signal that short-term momentum is turning positive.</li>
+            `;
+            if (settings.useRsiFilter || settings.useBBFilter) {
+                 examplesHTML += `<li><strong>Confirmation Checks:</strong> However, this isn't enough. For the trade to be valid, the following conditions must ALSO be met on the day of the crossover:`;
+                 examplesHTML += `<ul class="list-disc pl-6 mt-1">`;
+                 if (settings.useRsiFilter) {
+                     examplesHTML += `<li>The RSI must be below ${settings.rsiOverbought}.</li>`;
+                 }
+                 if (settings.useBBFilter) {
+                     examplesHTML += `<li>The price must be below the middle Bollinger Band (approx. <strong>$${formatNumber(triggers.bbBuyPrice)}</strong>).</li>`;
+                 }
+                 examplesHTML += `</ul></li>`;
+                 examplesHTML += `<li><strong>Putting it Together:</strong> Therefore, you need the price to hit <strong>$${formatNumber(triggers.crossoverPrice)}</strong>, but if it shoots up too far, it might violate the Bollinger Band or RSI condition, invalidating the signal for that day. You are looking for a controlled move to the crossover price.</li>`;
+            }
+            examplesHTML += `</ol>`;
+        }
+        showResults(container, examplesHTML);
     }
     
     async function analyzeStrategyWithAI() {
