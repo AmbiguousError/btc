@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.2 -->
+    <!-- Version: 13.3 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -148,7 +148,7 @@
                 <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals:
                     <ul class="list-disc pl-6 mt-1">
                         <li><strong>RSI Filter:</strong> A buy requires RSI to be below the overbought level; a sell requires it to be above the oversold level.</li>
-                        <li><strong>Bollinger Bands (BB) Filter:</strong> A buy requires the price to be below the middle BB line; a sell requires it to be above.</li>
+                        <li><strong>Bollinger Bands (BB) Filter:</strong> A buy requires the price to be below the middle BB line (the BB's own moving average); a sell requires it to be above. This acts as a 'mean reversion' check.</li>
                         <li><strong>Volume Filter:</strong> A signal requires the volume to be above its recent moving average.</li>
                     </ul>
                 </li>
@@ -1404,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                      examplesHTML += `<li>The price must be below the middle Bollinger Band (approx. <strong>$${formatNumber(triggers.bbBuyPrice)}</strong>).</li>`;
                  }
                  examplesHTML += `</ul></li>`;
-                 examplesHTML += `<li><strong>Putting it Together:</strong> Therefore, you need the price to hit <strong>$${formatNumber(triggers.crossoverPrice)}</strong>, but if it shoots up too far, it might violate the Bollinger Band or RSI condition, invalidating the signal for that day. You are looking for a controlled move to the crossover price.</li>`;
+                 examplesHTML += `<li><strong>Putting it Together:</strong> You need the price to hit <strong>$${formatNumber(triggers.crossoverPrice)}</strong>. However, if that price is higher than the Bollinger Band trigger of <strong>$${formatNumber(triggers.bbBuyPrice)}</strong>, the conditions are contradictory and a buy signal is impossible on that day. The strategy is essentially saying "the trend is turning bullish, but the price is too overextended from its recent average to safely buy right now."</li>`;
             }
             examplesHTML += `</ol>`;
         }
