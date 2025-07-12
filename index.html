@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.3 -->
+    <!-- Version: 13.4 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -144,7 +144,12 @@
             <p>This model combines multiple technical indicators and risk management rules to generate buy and sell signals.</p>
             <ul class="list-disc pl-5 mt-2 space-y-1">
                 <li><strong>1. Moving Average (MA) Crossover:</strong> The core signal. A "Golden Cross" (short MA over long MA) is a buy signal, while a "Death Cross" is a sell signal.</li>
-                <li><strong>2. Stop-Loss & Take-Profit:</strong> If enabled, a position will be automatically sold if the price drops by the Stop-Loss % or rises by the Take-Profit % from the entry price. This overrides all other signals.</li>
+                <li><strong>2. Risk Management (Highest Priority):</strong> These rules override all other signals.
+                     <ul class="list-disc pl-6 mt-1">
+                        <li><strong>Stop-Loss & Take-Profit:</strong> If enabled, a position is sold if the price hits a fixed percentage below (Stop-Loss) or above (Take-Profit) the entry price.</li>
+                        <li><strong>Trailing Stop-Loss:</strong> A more dynamic rule. If enabled, the sell price moves up as the price rises. A position is sold if the price drops by the specified percentage from its *highest point* since the trade was opened. This is designed to protect profits.</li>
+                    </ul>
+                </li>
                 <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals:
                     <ul class="list-disc pl-6 mt-1">
                         <li><strong>RSI Filter:</strong> A buy requires RSI to be below the overbought level; a sell requires it to be above the oversold level.</li>
@@ -178,7 +183,7 @@
                 <br><strong>Initial Investment:</strong> The starting amount in USD.
                 <br><strong>Tax/Service Fee:</strong> Percentages deducted from profits.
                 <br><strong>MA/RSI/BB/Volume Periods:</strong> The number of data points (days) used to calculate these indicators. Shorter periods are more sensitive to recent price changes.
-                <br><strong>Checkboxes:</strong> Enable or disable Stop-Loss/Take-Profit and various indicator filters to see how they affect performance.
+                <br><strong>Checkboxes:</strong> Enable or disable risk management and various indicator filters to see how they affect performance.
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="input-group"><label for="initialInvestment">Initial Investment ($):</label><input type="number" id="initialInvestment" value="100" min="1"></div>
@@ -194,10 +199,14 @@
                 <div class="input-group"><label for="volumeMAPeriod">Volume MA Period:</label><input type="number" id="volumeMAPeriod" value="20" min="2"></div>
                 <div class="input-group"><label for="stopLoss">Stop-Loss (%):</label><input type="number" id="stopLoss" value="5" min="0.1" step="0.1"></div>
                 <div class="input-group"><label for="takeProfit">Take-Profit (%):</label><input type="number" id="takeProfit" value="15" min="0.1" step="0.1"></div>
+                <div class="input-group"><label for="trailingStopLoss">Trailing SL (%):</label><input type="number" id="trailingStopLoss" value="10" min="0.1" step="0.1"></div>
+
 
                 <div class="checkbox-group mt-4 col-span-2 md:col-span-4 flex-wrap">
                     <input type="checkbox" id="useSLTP" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                    <label for="useSLTP" class="mr-4">Use SL/TP</label>
+                    <label for="useSLTP" class="mr-4">Use Fixed SL/TP</label>
+                    <input type="checkbox" id="useTrailingStopLoss" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <label for="useTrailingStopLoss" class="mr-4">Use Trailing SL</label>
                     <input type="checkbox" id="useRsiFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useRsiFilter" class="mr-4">Use RSI Filter</label>
                      <input type="checkbox" id="useBBFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
@@ -264,7 +273,7 @@
 
         <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
-            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-60) against all longer MA periods (up to 120). Crucially, it also tests <strong>all 16 possible combinations of the filters</strong> (SL/TP, RSI, BB, Volume) to find the absolute best-performing strategy configuration across the selected date range.</p>
+            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-60) against all longer MA periods (up to 120). Crucially, it also tests <strong>all 32 possible combinations of the filters</strong> (Fixed SL/TP, Trailing SL, RSI, BB, Volume) to find the absolute best-performing strategy configuration across the selected date range.</p>
             <p class="description-box mt-4"><strong>Find Comprehensive Optimum Strategy Button:</strong> Click to begin the intensive search. This may take a few moments. The results will include the best parameters, filter settings, performance metrics, and a detailed trade log.</p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary w-full mt-2">Find Comprehensive Optimum Strategy</button>
             <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
@@ -397,6 +406,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         stopLoss: document.getElementById('stopLoss'),
         takeProfit: document.getElementById('takeProfit'),
         useSLTP: document.getElementById('useSLTP'),
+        trailingStopLoss: document.getElementById('trailingStopLoss'),
+        useTrailingStopLoss: document.getElementById('useTrailingStopLoss'),
         minShortMA: document.getElementById('minShortMA'),
         maxShortMA: document.getElementById('maxShortMA'),
         minLongMA: document.getElementById('minLongMA'),
@@ -581,22 +592,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         let btc = 0;
         let signals = [];
         let entryPrice = 0;
+        let highWaterMark = 0;
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
             const volume = prices[i].volume;
             
             if (btc > 0) { // In a position, check for sell conditions
+                highWaterMark = Math.max(highWaterMark, price);
                 let sellReason = null;
-                const stopLossPrice = entryPrice * (1 - settings.stopLoss / 100);
-                const takeProfitPrice = entryPrice * (1 + settings.takeProfit / 100);
-
+                
+                // Risk management rules take priority
                 if (settings.useSLTP) {
+                    const stopLossPrice = entryPrice * (1 - settings.stopLoss / 100);
                     if (price <= stopLossPrice) sellReason = 'stop_loss';
-                    else if (price >= takeProfitPrice) sellReason = 'take_profit';
+                    const takeProfitPrice = entryPrice * (1 + settings.takeProfit / 100);
+                    if (price >= takeProfitPrice) sellReason = 'take_profit';
+                }
+                if (!sellReason && settings.useTrailingStopLoss) {
+                    const trailingStopPrice = highWaterMark * (1 - settings.trailingStopLoss / 100);
+                    if (price <= trailingStopPrice) sellReason = 'trailing_stop_loss';
                 }
 
-                if (!sellReason) { // If not triggered by SL/TP, check indicator signals
+                // If not triggered by risk management, check indicator signals
+                if (!sellReason) { 
                     const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
                     const bbConditionSell = !settings.useBBFilter || price > bb.middle[i];
                     const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
@@ -622,6 +641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
                     btc = cash / price;
                     entryPrice = price;
+                    highWaterMark = price; // Reset high water mark on new buy
                     signals.push({ index: i, type: 'buy', price, btc });
                     cash = 0;
                 }
@@ -748,7 +768,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 ctx.beginPath();
-                if (s.reason === 'stop_loss') {
+                if (s.reason === 'stop_loss' || s.reason === 'trailing_stop_loss') {
                     ctx.fillStyle = '#ef4444'; // Red triangle
                     ctx.moveTo(x, y + 6); ctx.lineTo(x-6, y-3); ctx.lineTo(x+6, y-3); ctx.closePath();
                 } else if (s.reason === 'take_profit') {
@@ -954,6 +974,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             stopLoss: parseFloat(elements.stopLoss.value),
             takeProfit: parseFloat(elements.takeProfit.value),
             useSLTP: elements.useSLTP.checked,
+            trailingStopLoss: parseFloat(elements.trailingStopLoss.value),
+            useTrailingStopLoss: elements.useTrailingStopLoss.checked,
             startDate: elements.startDate.value,
             endDate: elements.endDate.value,
         };
@@ -1063,21 +1085,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const loopRunner = () => {
                 if (isComprehensive) {
-                    const maxShortComprehensive = 60; // UPDATED
-                    const maxLongComprehensive = 120; // UPDATED
+                    const maxShortComprehensive = 60; 
+                    const maxLongComprehensive = 120;
                      if (maxLongComprehensive > filteredPrices.length) {
                         showResults(container, `<div class="warning-message">Not enough data for comprehensive optimization. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
                         hideSpinner(spinner);
                         return;
                     }
 
-                    // Loop through all 16 combinations of filters
-                    for (let i = 0; i < 16; i++) {
+                    // Loop through all 32 combinations of filters
+                    for (let i = 0; i < 32; i++) {
                         const currentFilterSettings = {
-                            useSLTP: (i & 8) > 0,
+                            useSLTP: (i & 1) > 0,
+                            useTrailingStopLoss: (i & 2) > 0,
                             useRsiFilter: (i & 4) > 0,
-                            useBBFilter: (i & 2) > 0,
-                            useVolumeFilter: (i & 1) > 0,
+                            useBBFilter: (i & 8) > 0,
+                            useVolumeFilter: (i & 16) > 0,
                         };
 
                         for (let short = 2; short <= maxShortComprehensive; short++) {
@@ -1125,7 +1148,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const netProfit = bestPerf.finalValue - settings.initialInvestment;
             const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
             
-            let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => k.replace('use', '')).join(', ');
+            let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => {
+                if (k === 'useSLTP') return 'Fixed SL/TP';
+                if (k === 'useTrailingStopLoss') return 'Trailing SL';
+                return k.replace('use', '').replace('Filter', '');
+            }).join(', ');
             if(!enabledFilters) enabledFilters = "None";
 
             showResults(container, `
@@ -1383,9 +1410,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             examplesHTML += `
                 <p><strong>Scenario: You are currently holding Bitcoin based on this strategy.</strong></p>
                 <ol class="list-decimal pl-6 mt-2 space-y-2">
-                    <li><strong>Defensive Play (Stop-Loss):</strong> Your primary risk management is the Stop-Loss. If the price drops to <strong>$${formatNumber(triggers.stopLossPrice)}</strong>, the strategy dictates a sell to limit losses, regardless of other indicators.</li>
-                    <li><strong>Profit-Taking Play:</strong> If the market rallies and hits <strong>$${formatNumber(triggers.takeProfitPrice)}</strong>, the strategy dictates a sell to lock in profits.</li>
-                    <li><strong>Trend-Change Play (Death Cross):</strong> If neither of the above happens, you watch for a trend reversal. A sell signal would occur if the price drops to <strong>$${formatNumber(triggers.crossoverPrice)}</strong>. This is the point where the short-term momentum (Short MA) would turn negative compared to the long-term trend (Long MA).</li>
+                    <li><strong>Defensive Play (Risk Management):</strong> Your primary risk management rules are checked first. 
+                        <ul class="list-disc pl-6 mt-1">
+                           ${settings.useSLTP ? `<li>A fixed Stop-Loss sell will occur if the price drops to <strong>$${formatNumber(triggers.stopLossPrice)}</strong>.</li>` : ''}
+                           ${settings.useTrailingStopLoss ? `<li>A Trailing Stop-Loss sell will occur if the price drops by ${settings.trailingStopLoss}% from its peak since you bought in.</li>` : ''}
+                           ${settings.useSLTP ? `<li>A Take-Profit sell will occur if the price rises to <strong>$${formatNumber(triggers.takeProfitPrice)}</strong>.</li>` : ''}
+                           ${!settings.useSLTP && !settings.useTrailingStopLoss ? '<li>No risk management rules are active.</li>' : ''}
+                        </ul>
+                    </li>
+                    <li><strong>Trend-Change Play (Death Cross):</strong> If no risk rules are triggered, you watch for a trend reversal. A sell signal would occur if the price drops to <strong>$${formatNumber(triggers.crossoverPrice)}</strong>. This is the point where the short-term momentum (Short MA) would turn negative compared to the long-term trend (Long MA).</li>
                 </ol>
             `;
         } else {
@@ -1428,6 +1461,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const filters = [
             `Stop-Loss/Take-Profit: ${settings.useSLTP ? `Enabled (${settings.stopLoss}% / ${settings.takeProfit}%)` : 'Disabled'}`,
+            `Trailing Stop-Loss: ${settings.useTrailingStopLoss ? `Enabled (${settings.trailingStopLoss}%)` : 'Disabled'}`,
             `RSI Filter: ${settings.useRsiFilter ? `Enabled (Period: ${settings.rsiPeriod}, Levels: ${settings.rsiOversold}/${settings.rsiOverbought})` : 'Disabled'}`,
             `Bollinger Bands Filter: ${settings.useBBFilter ? `Enabled (Period: ${settings.bbPeriod}, StdDev: ${settings.bbStdDev})` : 'Disabled'}`,
             `Volume Filter: ${settings.useVolumeFilter ? `Enabled (MA Period: ${settings.volumeMAPeriod})` : 'Disabled'}`
