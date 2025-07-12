@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -138,10 +142,10 @@
         <div class="explanation-box">
             <h3>How Signals Are Calculated</h3>
             <p>This model combines multiple technical indicators and risk management rules to generate buy and sell signals.</p>
-            <ul>
-                <li class="mt-2"><strong>1. Moving Average (MA) Crossover:</strong> The core signal. A "Golden Cross" (short MA over long MA) is a buy signal, while a "Death Cross" is a sell signal.</li>
-                <li class="mt-2"><strong>2. Stop-Loss & Take-Profit:</strong> If enabled, a position will be automatically sold if the price drops by the Stop-Loss % or rises by the Take-Profit % from the entry price. This overrides all other signals.</li>
-                <li class="mt-2"><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals:
+            <ul class="list-disc pl-5 mt-2 space-y-1">
+                <li><strong>1. Moving Average (MA) Crossover:</strong> The core signal. A "Golden Cross" (short MA over long MA) is a buy signal, while a "Death Cross" is a sell signal.</li>
+                <li><strong>2. Stop-Loss & Take-Profit:</strong> If enabled, a position will be automatically sold if the price drops by the Stop-Loss % or rises by the Take-Profit % from the entry price. This overrides all other signals.</li>
+                <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals:
                     <ul class="list-disc pl-6 mt-1">
                         <li><strong>RSI Filter:</strong> A buy requires RSI to be below the overbought level; a sell requires it to be above the oversold level.</li>
                         <li><strong>Bollinger Bands (BB) Filter:</strong> A buy requires the price to be below the middle BB line; a sell requires it to be above.</li>
@@ -768,11 +772,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const i = Math.round(hoverInfo.x / xScale);
             if (pricesData[i]) {
                 const infoHtml = `<strong>Date:</strong> ${new Date(pricesData[i].date).toLocaleDateString()}<br>
-                                  <strong>Price:</strong> $${formatNumber(prices[i])}<br>
-                                  <strong>Short MA:</strong> ${shortMA[i] ? '$' + formatNumber(shortMA[i]) : 'N/A'}<br>
-                                  <strong>Long MA:</strong> ${longMA[i] ? '$' + formatNumber(longMA[i]) : 'N/A'}<br>
-                                  <strong>BB Upper:</strong> ${bb.upper[i] ? '$' + formatNumber(bb.upper[i]) : 'N/A'}<br>
-                                  <strong>BB Lower:</strong> ${bb.lower[i] ? '$' + formatNumber(bb.lower[i]) : 'N/A'}`;
+                                <strong>Price:</strong> $${formatNumber(prices[i])}<br>
+                                <strong>Short MA:</strong> ${shortMA[i] ? '$' + formatNumber(shortMA[i]) : 'N/A'}<br>
+                                <strong>Long MA:</strong> ${longMA[i] ? '$' + formatNumber(longMA[i]) : 'N/A'}<br>
+                                <strong>BB Upper:</strong> ${bb.upper[i] ? '$' + formatNumber(bb.upper[i]) : 'N/A'}<br>
+                                <strong>BB Lower:</strong> ${bb.lower[i] ? '$' + formatNumber(bb.lower[i]) : 'N/A'}`;
                 showHoverBox(hoverInfo.box, infoHtml, hoverInfo.x, hoverInfo.y, canvas);
             }
         } else if (hoverInfo) {
@@ -1369,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key will be handled by the environment
+            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key is handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
