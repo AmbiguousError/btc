@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 12.8 -->
+    <!-- Version: 13.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -224,6 +224,7 @@
             <canvas id="volumeChartCanvas" class="mt-4"></canvas>
             <div id="hoverInfoBox" class="hover-info-box"></div>
             <div id="currentSimulationResults" class="results-box hidden mt-4"></div>
+            <div id="currentTransactionsContainer" class="mt-4"></div>
             <div id="currentPotentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
         </div>
 
@@ -235,6 +236,7 @@
             <canvas id="filteredVolumeChartCanvas" class="mt-4"></canvas>
             <div id="rsiFilteredHoverInfoBox" class="hover-info-box"></div>
             <div id="rsiFilteredSimulationResults" class="results-box hidden mt-4"></div>
+            <div id="rsiFilteredTransactionsContainer" class="mt-4"></div>
             <div id="filteredPotentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
         </div>
 
@@ -256,12 +258,13 @@
                 <p class="description-box">This chart visualizes the performance of the best strategy found during the manual optimization process.</p>
                 <canvas id="optimumChartCanvas"></canvas>
                 <div id="optimumHoverInfoBox" class="hover-info-box"></div>
+                <div id="optimumTransactionsContainer" class="mt-4"></div>
             </div>
         </div>
 
         <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
-            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-30) against all longer MA periods (up to 100). Crucially, it also tests <strong>all 16 possible combinations of the filters</strong> (SL/TP, RSI, BB, Volume) to find the absolute best-performing strategy configuration across the selected date range.</p>
+            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-60) against all longer MA periods (up to 120). Crucially, it also tests <strong>all 16 possible combinations of the filters</strong> (SL/TP, RSI, BB, Volume) to find the absolute best-performing strategy configuration across the selected date range.</p>
             <p class="description-box mt-4"><strong>Find Comprehensive Optimum Strategy Button:</strong> Click to begin the intensive search. This may take a few moments. The results will include the best parameters, filter settings, performance metrics, and a detailed trade log.</p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary w-full mt-2">Find Comprehensive Optimum Strategy</button>
             <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
@@ -276,21 +279,7 @@
                     <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full mt-2">✨ Analyze Optimum Strategy with AI</button>
                     <div id="aiAnalysisResultBox" class="ai-analysis-box hidden mt-4"></div>
                 </div>
-                <div id="comprehensiveTradesTableContainer" class="mt-4 hidden">
-                    <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Log:</h4>
-                    <p class="description-box">This table shows a detailed record of every buy and sell transaction executed by the optimal strategy.</p>
-                    <div class="overflow-x-auto">
-                        <table class="data-preview-table w-full">
-                            <thead>
-                                <tr>
-                                    <th>Buy Date</th><th>BTC Bought</th><th>Sell Date</th><th>Gross P/L</th>
-                                </tr>
-                            </thead>
-                            <tbody id="comprehensiveTradesTableBody">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div id="comprehensiveTradesTableContainer" class="mt-4"></div>
                  <div id="comprehensiveTradesSummaryContainer" class="results-box mt-4 hidden"></div>
                  <div id="potentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
             </div>
@@ -432,8 +421,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         rsiFilteredSimulationSection: document.getElementById('rsiFilteredSimulationSection'),
         optimumStrategyChartSection: document.getElementById('optimumStrategyChartSection'),
         comprehensiveOptimumStrategyChartSection: document.getElementById('comprehensiveOptimumStrategyChartSection'),
+        // Transaction Table Containers
+        currentTransactionsContainer: document.getElementById('currentTransactionsContainer'),
+        rsiFilteredTransactionsContainer: document.getElementById('rsiFilteredTransactionsContainer'),
+        optimumTransactionsContainer: document.getElementById('optimumTransactionsContainer'),
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
-        comprehensiveTradesTableBody: document.getElementById('comprehensiveTradesTableBody'),
         comprehensiveTradesSummaryContainer: document.getElementById('comprehensiveTradesSummaryContainer'),
         potentialSellScenariosContainer: document.getElementById('potentialSellScenariosContainer'),
         currentPotentialSellScenariosContainer: document.getElementById('currentPotentialSellScenariosContainer'),
@@ -442,7 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
         optimumHoverInfoBox: document.getElementById('optimumHoverInfoBox'),
-        comprehensiveHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox'),
+        comprehensiveOptimumHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox'),
         // AI elements
         aiAnalysisContainer: document.getElementById('aiAnalysisContainer'),
         analyzeStrategyBtn: document.getElementById('analyzeStrategyBtn'),
@@ -1028,15 +1020,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
-        renderPotentialSellScenarios(performance, settings, document.getElementById('currentPotentialSellScenariosContainer'), filteredPrices);
+        renderPotentialSellScenarios(performance, settings, elements.currentPotentialSellScenariosContainer, filteredPrices);
+        renderTransactionTable(elements.currentTransactionsContainer, performance, settings, filteredPrices);
 
 
         // RSI-Filtered simulation data
         const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true, useVolumeFilter: true};
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
-        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings };
+        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
-        renderPotentialSellScenarios(fullyFilteredPerformance, fullyFilteredSettings, document.getElementById('filteredPotentialSellScenariosContainer'), filteredPrices);
+        renderPotentialSellScenarios(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredPotentialSellScenariosContainer, filteredPrices);
+        renderTransactionTable(elements.rsiFilteredTransactionsContainer, fullyFilteredPerformance, fullyFilteredSettings, filteredPrices);
 
         // Initial draw without hover
         drawCurrentCharts(null);
@@ -1065,10 +1059,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const loopRunner = () => {
                 if (isComprehensive) {
-                    const maxShortComprehensive = 30;
-                    const maxLongComprehensive = 100;
+                    const maxShortComprehensive = 60; // UPDATED
+                    const maxLongComprehensive = 120; // UPDATED
                      if (maxLongComprehensive > filteredPrices.length) {
-                        showResults(container, `<div class="warning-message">Not enough data. Need ${maxLongComprehensive}, have ${filteredPrices.length}.</div>`);
+                        showResults(container, `<div class="warning-message">Not enough data for comprehensive optimization. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
                         hideSpinner(spinner);
                         return;
                     }
@@ -1139,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
             `);
 
-            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimizationResults;
+            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
             const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
             chartSection.classList.remove('hidden');
             const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
@@ -1148,13 +1142,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(isComprehensive){
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
-                renderTradesTable(bestPerf, bestSettings);
+                renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
                 renderPotentialSellScenarios(bestPerf, bestSettings, elements.potentialSellScenariosContainer, filteredPrices);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings};
+                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings);
+                renderTransactionTable(elements.optimumTransactionsContainer, bestPerf, bestSettings, filteredPrices);
             }
 
             elements.shortMA.value = bestShort;
@@ -1169,11 +1164,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 10);
     }
     
-    function renderTradesTable(perf, settings) {
+    function renderTransactionTable(container, perf, settings, pricesData) {
+        if (!container) return;
+
         const signals = perf.signals;
-        const pricesData = filteredPrices;
-        elements.comprehensiveTradesTableBody.innerHTML = '';
-        
+        container.innerHTML = ''; // Clear previous content
+        container.classList.add('hidden'); // Hide by default
+
         const trades = [];
         let buySignal = null;
         for (const signal of signals) {
@@ -1185,22 +1182,61 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        elements.comprehensiveTradesTableContainer.classList.toggle('hidden', trades.length === 0);
-        elements.comprehensiveTradesSummaryContainer.classList.toggle('hidden', trades.length === 0);
+        if (trades.length === 0) {
+            return; // No trades, keep container hidden
+        }
 
-        if(trades.length > 0){
-            let totalGrossProfit = 0;
-            trades.forEach(trade => {
-                totalGrossProfit += trade.sell.grossProfit;
-                const row = elements.comprehensiveTradesTableBody.insertRow();
-                row.insertCell().textContent = new Date(pricesData[trade.buy.index].date).toLocaleDateString();
-                row.insertCell().textContent = `${trade.buy.btc.toFixed(6)}`;
-                row.insertCell().textContent = new Date(pricesData[trade.sell.index].date).toLocaleDateString();
-                const grossCell = row.insertCell();
-                grossCell.textContent = `$${formatNumber(trade.sell.grossProfit)}`;
-                grossCell.className = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
-            });
-            
+        container.classList.remove('hidden');
+
+        const formatReason = (reason) => {
+            if (!reason) return 'N/A';
+            return reason.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        };
+
+        let tableHTML = `
+            <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Log:</h4>
+            <p class="description-box">This table shows a detailed record of every buy and sell transaction executed by this strategy.</p>
+            <div class="overflow-x-auto">
+                <table class="data-preview-table w-full">
+                    <thead>
+                        <tr>
+                            <th>Buy Date</th>
+                            <th>Buy Price</th>
+                            <th>Sell Date</th>
+                            <th>Sell Price</th>
+                            <th>Reason</th>
+                            <th>Gross P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        let totalGrossProfit = 0;
+        trades.forEach(trade => {
+            totalGrossProfit += trade.sell.grossProfit;
+            const profitColor = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
+            tableHTML += `
+                <tr>
+                    <td>${new Date(pricesData[trade.buy.index].date).toLocaleDateString()}</td>
+                    <td>$${formatNumber(trade.buy.price)}</td>
+                    <td>${new Date(pricesData[trade.sell.index].date).toLocaleDateString()}</td>
+                    <td>$${formatNumber(trade.sell.price)}</td>
+                    <td>${formatReason(trade.sell.reason)}</td>
+                    <td class="${profitColor}">$${formatNumber(trade.sell.grossProfit)}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        container.innerHTML = tableHTML;
+
+        // Also render the summary for comprehensive section specifically
+        if (container.id === 'comprehensiveTradesTableContainer') {
             const fee = totalGrossProfit > 0 ? totalGrossProfit * (settings.serviceFee / 100) : 0;
             const taxableProfit = totalGrossProfit > 0 ? totalGrossProfit - fee : 0;
             const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
@@ -1214,6 +1250,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
             `;
             showResults(elements.comprehensiveTradesSummaryContainer, summaryHTML);
+            elements.comprehensiveTradesSummaryContainer.classList.remove('hidden');
+        } else {
+             elements.comprehensiveTradesSummaryContainer.classList.add('hidden');
         }
     }
 
@@ -1345,8 +1384,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const currentGrossProfit = currentValue - cashInvested;
 
                 let scenarioText = `\n\n**Additional Context: Open Position Analysis**
-                - The simulation ended with an open trade, bought at $${formatNumber(buyPrice)}.
-                - If sold at the last known price of $${formatNumber(lastPrice)}, the approximate gross profit/loss would be $${formatNumber(currentGrossProfit)}.`;
+                 - The simulation ended with an open trade, bought at $${formatNumber(buyPrice)}.
+                 - If sold at the last known price of $${formatNumber(lastPrice)}, the approximate gross profit/loss would be $${formatNumber(currentGrossProfit)}.`;
 
                 if (settings.useSLTP) {
                     const slPrice = buyPrice * (1 - settings.stopLoss / 100);
@@ -1362,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 
                 scenarioText += `\n\n**New Task:**
-                Please also incorporate this open position into your analysis. Briefly comment on the current state of this final trade (e.g., is it currently profitable?) and how the risk management (SL/TP levels) frames the potential outcomes.`;
+                 Please also incorporate this open position into your analysis. Briefly comment on the current state of this final trade (e.g., is it currently profitable?) and how the risk management (SL/TP levels) frames the potential outcomes.`;
 
                 prompt += scenarioText;
             }
@@ -1373,7 +1412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key is handled by the environment
+            const apiKey = ""; // API Key is handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -1444,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
              if(!comprehensiveStrategyData) return;
             const {prices, shortMA, longMA, bb, signals, settings} = comprehensiveStrategyData;
             drawChart(elements.comprehensiveOptimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover);
-        }, () => elements.comprehensiveHoverInfoBox);
+        }, () => elements.comprehensiveOptimumHoverInfoBox);
     }
 
     async function initialize() {
