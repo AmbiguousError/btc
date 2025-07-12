@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.6 -->
+    <!-- Version: 13.7 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -150,7 +150,7 @@
                         <li><strong>Trailing Stop-Loss:</strong> A more dynamic rule. If enabled, the sell price moves up as the price rises. A position is sold if the price drops by the specified percentage from its *highest point* since the trade was opened. This is designed to protect profits.</li>
                     </ul>
                 </li>
-                <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals:
+                <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals. A valid signal only occurs when the MA crossover happens *and* all enabled filter conditions are met simultaneously.
                     <ul class="list-disc pl-6 mt-1">
                         <li><strong>RSI Filter:</strong> A buy requires RSI to be below the overbought level; a sell requires it to be above the oversold level.</li>
                         <li><strong>Bollinger Bands (BB) Filter:</strong> A buy requires the price to be below the middle BB line (the BB's own moving average); a sell requires it to be above. This acts as a 'mean reversion' check.</li>
@@ -705,7 +705,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ctx.fillText(title, width / 2, 20);
     }
 
-    function drawChart(canvas, pricesData, shortMA, longMA, bb, signals, settings, hoverInfo) {
+    function drawChart(canvas, pricesData, shortMA, longMA, bb, signals, settings, hoverInfo, triggers) {
         const { ctx, width, height } = setupCanvas(canvas);
         ctx.clearRect(0, 0, width, height);
 
@@ -781,6 +781,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ctx.fill();
             }
         });
+
+        // Draw Trigger Lines
+        if (triggers) {
+            const lastX = getX(pricesData.length - 1);
+            if(triggers.crossoverPrice) {
+                const y = getY(triggers.crossoverPrice);
+                drawDataLine(ctx, [{x: lastX, y}, {x: width, y}], '#f59e0b', 1, true);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillText(`Crossover: $${formatNumber(triggers.crossoverPrice)}`, lastX - 10, y - 5);
+            }
+        }
 
         if (hoverInfo && hoverInfo.x !== -1) {
             drawCrosshair(ctx, hoverInfo.x, hoverInfo.y, width, height);
@@ -1004,8 +1015,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Main Drawing Functions ---
     function drawCurrentCharts(hoverInfo) {
         if (!currentStrategyData) return;
-        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = currentStrategyData;
-        drawChart(elements.currentChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo);
+        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings, triggers } = currentStrategyData;
+        drawChart(elements.currentChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo, triggers);
         
         const { ctx, width, height } = setupCanvas(elements.rsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
@@ -1015,8 +1026,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function drawRsiFilteredCharts(hoverInfo) {
         if (!rsiFilteredStrategyData) return;
-        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings } = rsiFilteredStrategyData;
-        drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo);
+        const { prices, shortMA, longMA, rsi, bb, volumeSMA, signals, settings, triggers } = rsiFilteredStrategyData;
+        drawChart(elements.rsiFilteredChartCanvas, prices, shortMA, longMA, bb, signals, settings, hoverInfo, triggers);
         
         const { ctx, width, height } = setupCanvas(elements.rsiFilteredRsiChartCanvas);
         drawRSIChart(ctx, width, height, rsi, settings, hoverInfo);
@@ -1043,7 +1054,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Normal simulation data
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
-        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
+        const triggers = calculateNextDayTriggers(filteredPrices, performance, settings, shortMA, longMA);
+        currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance, triggers };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
         renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi, bb);
         renderTransactionTable(elements.currentTransactionsContainer, performance, settings, filteredPrices);
@@ -1052,7 +1064,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // RSI-Filtered simulation data
         const fullyFilteredSettings = {...settings, useRsiFilter: true, useBBFilter: true, useVolumeFilter: true};
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
-        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance };
+        const fullyFilteredTriggers = calculateNextDayTriggers(filteredPrices, fullyFilteredPerformance, fullyFilteredSettings, shortMA, longMA);
+        rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance, triggers: fullyFilteredTriggers };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
         renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi, bb);
         renderTransactionTable(elements.rsiFilteredTransactionsContainer, fullyFilteredPerformance, fullyFilteredSettings, filteredPrices);
@@ -1179,16 +1192,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
             
             if(isComprehensive){
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
-                drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
+                const bestTriggers = calculateNextDayTriggers(filteredPrices, bestPerf, bestSettings, bestShortMA, bestLongMA);
+                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf, triggers: bestTriggers};
+                drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings, null, bestTriggers);
                 renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
                 renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices, bestShortMA, bestLongMA, rsi, bb);
                 renderPracticalExamples(bestPerf, bestSettings, elements.comprehensivePracticalExamples, filteredPrices);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
-                drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings);
+                const bestTriggers = calculateNextDayTriggers(filteredPrices, bestPerf, bestSettings, bestShortMA, bestLongMA);
+                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf, triggers: bestTriggers};
+                drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings, null, bestTriggers);
                 renderTransactionTable(elements.optimumTransactionsContainer, bestPerf, bestSettings, filteredPrices);
             }
 
@@ -1298,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function calculateNextDayTriggers(prices, perf, settings) {
+    function calculateNextDayTriggers(prices, perf, settings, shortMA, longMA) {
         if (!prices || prices.length < settings.longPeriod) return null;
 
         const triggers = {};
@@ -1343,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.innerHTML = '';
         container.classList.add('hidden');
 
-        const triggers = calculateNextDayTriggers(prices, perf, settings);
+        const triggers = calculateNextDayTriggers(prices, perf, settings, shortMA, longMA);
         if (!triggers) return;
 
         const lastIndex = prices.length - 1;
