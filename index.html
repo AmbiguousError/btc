@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.4 -->
+    <!-- Version: 13.5 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -273,7 +273,7 @@
 
         <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
-            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-60) against all longer MA periods (up to 120). Crucially, it also tests <strong>all 32 possible combinations of the filters</strong> (Fixed SL/TP, Trailing SL, RSI, BB, Volume) to find the absolute best-performing strategy configuration across the selected date range.</p>
+            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-60) against all longer MA periods (up to 120). Crucially, it also tests <strong>all 32 possible combinations of the filters</strong> (Fixed SL/TP, Trailing SL, RSI, BB, Volume) and a range of Trailing SL percentages to find the absolute best-performing strategy configuration.</p>
             <p class="description-box mt-4"><strong>Find Comprehensive Optimum Strategy Button:</strong> Click to begin the intensive search. This may take a few moments. The results will include the best parameters, filter settings, performance metrics, and a detailed trade log.</p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary w-full mt-2">Find Comprehensive Optimum Strategy</button>
             <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
@@ -1087,15 +1087,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (isComprehensive) {
                     const maxShortComprehensive = 60; 
                     const maxLongComprehensive = 120;
-                     if (maxLongComprehensive > filteredPrices.length) {
+                    if (maxLongComprehensive > filteredPrices.length) {
                         showResults(container, `<div class="warning-message">Not enough data for comprehensive optimization. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
                         hideSpinner(spinner);
                         return;
                     }
 
-                    // Loop through all 32 combinations of filters
+                    const trailingStopValues = [5, 10, 15, 20]; // Test these TSL percentages
+
+                    // Loop through all filter combinations
                     for (let i = 0; i < 32; i++) {
-                        const currentFilterSettings = {
+                        const baseFilterSettings = {
                             useSLTP: (i & 1) > 0,
                             useTrailingStopLoss: (i & 2) > 0,
                             useRsiFilter: (i & 4) > 0,
@@ -1103,9 +1105,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                             useVolumeFilter: (i & 16) > 0,
                         };
 
-                        for (let short = 2; short <= maxShortComprehensive; short++) {
-                            for (let long = short + 1; long <= maxLongComprehensive; long++) {
-                                runTest(short, long, currentFilterSettings);
+                        const tslIterator = baseFilterSettings.useTrailingStopLoss ? trailingStopValues : [settings.trailingStopLoss];
+                        
+                        for (const tsl of tslIterator) {
+                             const currentFilterSettings = {...baseFilterSettings, trailingStopLoss: tsl };
+                             for (let short = 2; short <= maxShortComprehensive; short++) {
+                                for (let long = short + 1; long <= maxLongComprehensive; long++) {
+                                    runTest(short, long, currentFilterSettings);
+                                }
                             }
                         }
                     }
@@ -1150,9 +1157,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => {
                 if (k === 'useSLTP') return 'Fixed SL/TP';
-                if (k === 'useTrailingStopLoss') return 'Trailing SL';
+                if (k === 'useTrailingStopLoss') return `Trailing SL (${bestSettings.trailingStopLoss}%)`;
                 return k.replace('use', '').replace('Filter', '');
             }).join(', ');
+
             if(!enabledFilters) enabledFilters = "None";
 
             showResults(container, `
@@ -1189,6 +1197,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             Object.keys(bestSettings).forEach(key => {
                 if(elements[key] && elements[key].type === 'checkbox') {
                     elements[key].checked = bestSettings[key];
+                } else if (elements[key] && elements[key].id === 'trailingStopLoss') {
+                    elements[key].value = bestSettings[key];
                 }
             });
 
@@ -1359,16 +1369,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         `;
 
+        const isShortAboveLong = lastShortMA > lastLongMA;
+
         // --- BUY Column ---
         let buyHTML = `<div><h4 class="text-lg font-bold text-green-700 mb-2">Potential Buy Triggers</h4><ul class="list-disc pl-6 space-y-2">`;
-        if (triggers.crossoverPrice) {
+        if (!isShortAboveLong && triggers.crossoverPrice) {
             buyHTML += `<li><strong>Golden Cross:</strong> Price must rise to ~<strong>$${formatNumber(triggers.crossoverPrice)}</strong>.</li>`;
+        } else {
+            buyHTML += `<li>A Golden Cross is not the next possible crossover.</li>`;
         }
         if (settings.useBBFilter && triggers.bbBuyPrice) {
-            buyHTML += `<li><strong>Bollinger Band:</strong> Price must be below ~<strong>$${formatNumber(triggers.bbBuyPrice)}</strong>.</li>`;
+            buyHTML += `<li><strong>Bollinger Band:</strong> For a buy, price must be below ~<strong>$${formatNumber(triggers.bbBuyPrice)}</strong>.</li>`;
         }
         if (settings.useRsiFilter) {
-            buyHTML += `<li><strong>RSI Filter:</strong> RSI must be below ${settings.rsiOverbought}. (Currently ${formatNumber(lastRSI)})</li>`;
+            buyHTML += `<li><strong>RSI Filter:</strong> For a buy, RSI must be below ${settings.rsiOverbought}. (Currently ${formatNumber(lastRSI)})</li>`;
         }
         buyHTML += `</ul></div>`;
 
@@ -1382,11 +1396,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sellHTML += `<li><strong>Take-Profit:</strong> Price must rise to ~<strong>$${formatNumber(takeProfitPrice)}</strong>.</li>`;
             }
         }
-        if (triggers.crossoverPrice) {
+        if (isShortAboveLong && triggers.crossoverPrice) {
             sellHTML += `<li><strong>Death Cross:</strong> Price must drop to ~<strong>$${formatNumber(triggers.crossoverPrice)}</strong>.</li>`;
+        } else {
+            sellHTML += `<li>A Death Cross is not the next possible crossover.</li>`;
         }
         if (settings.useBBFilter && triggers.bbSellPrice) {
-             sellHTML += `<li><strong>Bollinger Band:</strong> Price must be above ~<strong>$${formatNumber(triggers.bbSellPrice)}</strong>.</li>`;
+             sellHTML += `<li><strong>Bollinger Band:</strong> For a sell, price must be above ~<strong>$${formatNumber(triggers.bbSellPrice)}</strong>.</li>`;
         }
         sellHTML += `</ul></div>`;
         
