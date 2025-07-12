@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.7 -->
+    <!-- Version: 13.8 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -273,10 +273,16 @@
 
         <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
-            <p class="description-box">This is the most powerful tool. It performs an exhaustive search, testing all Short MA periods (from 2-60) against all longer MA periods (up to 120). Crucially, it also tests <strong>all 32 possible combinations of the filters</strong> (Fixed SL/TP, Trailing SL, RSI, BB, Volume) and a range of Trailing SL percentages to find the absolute best-performing strategy configuration.</p>
+            <p class="description-box">This is the most powerful tool. It performs an exhaustive search (a "grid search") by testing every possible combination of the parameters below to find the absolute best-performing strategy.
+                <br>• <b>MA Periods:</b> Short (2-60) vs. Long (up to 120).
+                <br>• <b>Filter Combinations:</b> All 32 on/off combinations of the 5 filters.
+                <br>• <b>Trailing SL %:</b> A range of values (1%, 3%, 5%, 10%, 15%, 20%) are tested if Trailing SL is active.
+                <br><b>Note:</b> For other filters (Fixed SL/TP, RSI, etc.), the optimization tests their on/off state but uses the single value set in the main "Strategy Parameters" panel. Optimizing their values is a potential future enhancement.
+            </p>
             <p class="description-box mt-4"><strong>Find Comprehensive Optimum Strategy Button:</strong> Click to begin the intensive search. This may take a few moments. The results will include the best parameters, filter settings, performance metrics, and a detailed trade log.</p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary w-full mt-2">Find Comprehensive Optimum Strategy</button>
             <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
+            <div id="comprehensiveOptimizationProgress" class="text-sm text-gray-600 text-center mt-2"></div>
             <div id="comprehensiveOptimizationResults" class="optimization-results hidden mt-4"></div>
             <div id="comprehensiveOptimumStrategyChartSection" class="chart-section mt-4 hidden">
                  <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">Comprehensive Optimum Strategy Chart</h3>
@@ -429,6 +435,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rsiFilteredSimulationResults: document.getElementById('rsiFilteredSimulationResults'),
         optimizationResults: document.getElementById('optimizationResults'),
         comprehensiveOptimizationResults: document.getElementById('comprehensiveOptimizationResults'),
+        comprehensiveOptimizationProgress: document.getElementById('comprehensiveOptimizationProgress'),
         currentSimulationSection: document.getElementById('currentSimulationSection'),
         rsiFilteredSimulationSection: document.getElementById('rsiFilteredSimulationSection'),
         optimumStrategyChartSection: document.getElementById('optimumStrategyChartSection'),
@@ -789,7 +796,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const y = getY(triggers.crossoverPrice);
                 drawDataLine(ctx, [{x: lastX, y}, {x: width, y}], '#f59e0b', 1, true);
                 ctx.fillStyle = '#f59e0b';
-                ctx.fillText(`Crossover: $${formatNumber(triggers.crossoverPrice)}`, lastX - 10, y - 5);
+                ctx.textAlign = 'right';
+                ctx.fillText(`Crossover: $${formatNumber(triggers.crossoverPrice)}`, width - 5, y - 5);
             }
         }
 
@@ -1075,150 +1083,162 @@ document.addEventListener('DOMContentLoaded', async () => {
         drawRsiFilteredCharts(null);
     }
     
-    function findOptimum(isComprehensive = false) {
+    async function findOptimum(isComprehensive = false) {
         const settings = getSettings();
         filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate);
         const container = isComprehensive ? elements.comprehensiveOptimizationResults : elements.optimizationResults;
         const spinner = isComprehensive ? elements.comprehensiveOptimizationSpinner : elements.optimizationSpinner;
+        const progressDiv = elements.comprehensiveOptimizationProgress;
         
         showSpinner(spinner);
-        showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
+        progressDiv.innerHTML = 'Preparing optimization...';
+        showResults(container, "<h3>Optimizing...</h3><p>This may take a moment. See progress below.</p>");
         elements.aiAnalysisContainer.classList.add('hidden');
         elements.aiAnalysisResultBox.classList.add('hidden');
         elements.comprehensiveNextDayAnalysisContainer.classList.add('hidden');
         elements.comprehensivePracticalExamples.classList.add('hidden');
 
+        // Use a short timeout to allow the UI to update before the heavy computation begins
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-        setTimeout(() => {
-            let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
-            let bestSettings = {};
-            const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
-            const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
-            const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
+        let bestPerf = { finalValue: -Infinity }, bestShort = 0, bestLong = 0;
+        let bestSettings = {};
+        const rsi = calculateRSI(filteredPrices, settings.rsiPeriod);
+        const bb = calculateBollingerBands(filteredPrices, settings.bbPeriod, settings.bbStdDev);
+        const volumeSMA = calculateSMA(filteredPrices, settings.volumeMAPeriod, 'volume');
 
-            const loopRunner = () => {
-                if (isComprehensive) {
-                    const maxShortComprehensive = 60; 
-                    const maxLongComprehensive = 120;
-                    if (maxLongComprehensive > filteredPrices.length) {
-                        showResults(container, `<div class="warning-message">Not enough data for comprehensive optimization. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
-                        hideSpinner(spinner);
-                        return;
-                    }
+        const runTest = (short, long, filterSettings) => {
+            const testSettings = { ...settings, ...filterSettings, shortPeriod: short, longPeriod: long };
+            const shortMA = calculateSMA(filteredPrices, short, 'price');
+            const longMA = calculateSMA(filteredPrices, long, 'price');
+            const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, testSettings);
+            if (perf.finalValue > bestPerf.finalValue) {
+                bestPerf = perf; 
+                bestShort = short; 
+                bestLong = long;
+                bestSettings = testSettings;
+            }
+        };
 
-                    const trailingStopValues = [5, 10, 15, 20]; // Test these TSL percentages
+        if (isComprehensive) {
+            const maxShortComprehensive = 60; 
+            const maxLongComprehensive = 120;
+            if (maxLongComprehensive > filteredPrices.length) {
+                showResults(container, `<div class="warning-message">Not enough data for comprehensive optimization. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
+                hideSpinner(spinner);
+                return;
+            }
 
-                    // Loop through all filter combinations
-                    for (let i = 0; i < 32; i++) {
-                        const baseFilterSettings = {
-                            useSLTP: (i & 1) > 0,
-                            useTrailingStopLoss: (i & 2) > 0,
-                            useRsiFilter: (i & 4) > 0,
-                            useBBFilter: (i & 8) > 0,
-                            useVolumeFilter: (i & 16) > 0,
-                        };
+            const trailingStopValues = [1, 3, 5, 10, 15, 20];
+            let combinationsTested = 0;
+            let lastUpdateTime = Date.now();
 
-                        const tslIterator = baseFilterSettings.useTrailingStopLoss ? trailingStopValues : [settings.trailingStopLoss];
-                        
-                        for (const tsl of tslIterator) {
-                             const currentFilterSettings = {...baseFilterSettings, trailingStopLoss: tsl };
-                             for (let short = 2; short <= maxShortComprehensive; short++) {
-                                for (let long = short + 1; long <= maxLongComprehensive; long++) {
-                                    runTest(short, long, currentFilterSettings);
-                                }
+            // Create an async generator to yield combinations without blocking the UI
+            async function* generateCombinations() {
+                for (let i = 0; i < 32; i++) {
+                    const baseFilterSettings = {
+                        useSLTP: (i & 1) > 0,
+                        useTrailingStopLoss: (i & 2) > 0,
+                        useRsiFilter: (i & 4) > 0,
+                        useBBFilter: (i & 8) > 0,
+                        useVolumeFilter: (i & 16) > 0,
+                    };
+                    const tslIterator = baseFilterSettings.useTrailingStopLoss ? trailingStopValues : [settings.trailingStopLoss];
+                    for (const tsl of tslIterator) {
+                         const currentFilterSettings = {...baseFilterSettings, trailingStopLoss: tsl };
+                         for (let short = 2; short <= maxShortComprehensive; short++) {
+                            for (let long = short + 1; long <= maxLongComprehensive; long++) {
+                                yield { short, long, currentFilterSettings };
                             }
                         }
                     }
-
-                } else { // Manual Optimization
-                    const minShort = parseInt(elements.minShortMA.value);
-                    const maxShort = parseInt(elements.maxShortMA.value);
-                    const minLong = parseInt(elements.minLongMA.value);
-                    const maxLong = parseInt(elements.maxLongMA.value);
-                    if (maxLong > filteredPrices.length) {
-                        showResults(container, `<div class="warning-message">Not enough data. Need ${maxLong}, have ${filteredPrices.length}.</div>`);
-                        hideSpinner(spinner);
-                        return;
-                    }
-                    for (let short = minShort; short <= maxShort; short++) {
-                        for (let long = minLong; long <= maxLong; long++) {
-                            if (short >= long) continue;
-                            runTest(short, long, settings); // Use UI settings for manual
-                        }
-                    }
+                }
+            }
+            
+            for await (const combo of generateCombinations()) {
+                runTest(combo.short, combo.long, combo.currentFilterSettings);
+                combinationsTested++;
+                const now = Date.now();
+                if (now - lastUpdateTime > 100) { // Update UI every 100ms
+                    progressDiv.innerHTML = `Testing combination ${combinationsTested.toLocaleString()}... Best Profit Found: <span class="font-bold text-green-600">$${formatNumber(bestPerf.finalValue - settings.initialInvestment)}</span>`;
+                    await new Promise(resolve => setTimeout(resolve, 0)); // Yield to main thread
+                    lastUpdateTime = now;
                 }
             }
 
-            const runTest = (short, long, filterSettings) => {
-                const testSettings = { ...settings, ...filterSettings, shortPeriod: short, longPeriod: long };
-                const shortMA = calculateSMA(filteredPrices, short, 'price');
-                const longMA = calculateSMA(filteredPrices, long, 'price');
-                const perf = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, testSettings);
-                if (perf.finalValue > bestPerf.finalValue) {
-                    bestPerf = perf; 
-                    bestShort = short; 
-                    bestLong = long;
-                    bestSettings = testSettings;
-                }
-            };
-            
-            loopRunner();
-
-            hideSpinner(spinner);
-            const netProfit = bestPerf.finalValue - settings.initialInvestment;
-            const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
-            
-            let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => {
-                if (k === 'useSLTP') return 'Fixed SL/TP';
-                if (k === 'useTrailingStopLoss') return `Trailing SL (${bestSettings.trailingStopLoss}%)`;
-                return k.replace('use', '').replace('Filter', '');
-            }).join(', ');
-
-            if(!enabledFilters) enabledFilters = "None";
-
-            showResults(container, `
-                <h3>Optimum Strategy Found:</h3>
-                <p>Short MA: ${bestShort}, Long MA: ${bestLong}</p>
-                <p>Enabled Filters: <span class="font-semibold">${enabledFilters}</span></p>
-                <hr class="my-2 border-gray-300">
-                <p>Final Value: <span class="font-bold">$${formatNumber(bestPerf.finalValue)}</span></p>
-                <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
-            `);
-
-            const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
-            const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
-            chartSection.classList.remove('hidden');
-            const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
-            const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
-            
-            if(isComprehensive){
-                const bestTriggers = calculateNextDayTriggers(filteredPrices, bestPerf, bestSettings, bestShortMA, bestLongMA);
-                comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf, triggers: bestTriggers};
-                drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings, null, bestTriggers);
-                renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
-                renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices, bestShortMA, bestLongMA, rsi, bb);
-                renderPracticalExamples(bestPerf, bestSettings, elements.comprehensivePracticalExamples, filteredPrices);
-                elements.aiAnalysisContainer.classList.remove('hidden');
-
-            } else {
-                const bestTriggers = calculateNextDayTriggers(filteredPrices, bestPerf, bestSettings, bestShortMA, bestLongMA);
-                optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf, triggers: bestTriggers};
-                drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings, null, bestTriggers);
-                renderTransactionTable(elements.optimumTransactionsContainer, bestPerf, bestSettings, filteredPrices);
+        } else { // Manual Optimization
+            const minShort = parseInt(elements.minShortMA.value);
+            const maxShort = parseInt(elements.maxShortMA.value);
+            const minLong = parseInt(elements.minLongMA.value);
+            const maxLong = parseInt(elements.maxLongMA.value);
+            if (maxLong > filteredPrices.length) {
+                showResults(container, `<div class="warning-message">Not enough data. Need ${maxLong}, have ${filteredPrices.length}.</div>`);
+                hideSpinner(spinner);
+                return;
             }
-
-            elements.shortMA.value = bestShort;
-            elements.longMA.value = bestLong;
-            Object.keys(bestSettings).forEach(key => {
-                if(elements[key] && elements[key].type === 'checkbox') {
-                    elements[key].checked = bestSettings[key];
-                } else if (elements[key] && elements[key].id === 'trailingStopLoss') {
-                    elements[key].value = bestSettings[key];
+            for (let short = minShort; short <= maxShort; short++) {
+                for (let long = minLong; long <= maxLong; long++) {
+                    if (short >= long) continue;
+                    runTest(short, long, settings); // Use UI settings for manual
                 }
-            });
+            }
+        }
+        
+        progressDiv.innerHTML = `Optimization complete. Found best strategy.`;
+        hideSpinner(spinner);
+        const netProfit = bestPerf.finalValue - settings.initialInvestment;
+        const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
+        
+        let enabledFilters = Object.keys(bestSettings).filter(k => k.startsWith('use') && bestSettings[k]).map(k => {
+            if (k === 'useSLTP') return 'Fixed SL/TP';
+            if (k === 'useTrailingStopLoss') return `Trailing SL (${bestSettings.trailingStopLoss}%)`;
+            return k.replace('use', '').replace('Filter', '');
+        }).join(', ');
 
-            runSimulation();
-        }, 10);
+        if(!enabledFilters) enabledFilters = "None";
+
+        showResults(container, `
+            <h3>Optimum Strategy Found:</h3>
+            <p>Short MA: ${bestShort}, Long MA: ${bestLong}</p>
+            <p>Enabled Filters: <span class="font-semibold">${enabledFilters}</span></p>
+            <hr class="my-2 border-gray-300">
+            <p>Final Value: <span class="font-bold">$${formatNumber(bestPerf.finalValue)}</span></p>
+            <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
+        `);
+
+        const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
+        const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
+        chartSection.classList.remove('hidden');
+        const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
+        const bestLongMA = calculateSMA(filteredPrices, bestLong, 'price');
+        
+        if(isComprehensive){
+            const bestTriggers = calculateNextDayTriggers(filteredPrices, bestPerf, bestSettings, bestShortMA, bestLongMA);
+            comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf, triggers: bestTriggers};
+            drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings, null, bestTriggers);
+            renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
+            renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices, bestShortMA, bestLongMA, rsi, bb);
+            renderPracticalExamples(bestPerf, bestSettings, elements.comprehensivePracticalExamples, filteredPrices);
+            elements.aiAnalysisContainer.classList.remove('hidden');
+
+        } else {
+            const bestTriggers = calculateNextDayTriggers(filteredPrices, bestPerf, bestSettings, bestShortMA, bestLongMA);
+            optimumStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf, triggers: bestTriggers};
+            drawChart(chartCanvas, optimumStrategyData.prices, optimumStrategyData.shortMA, optimumStrategyData.longMA, optimumStrategyData.bb, optimumStrategyData.signals, optimumStrategyData.settings, null, bestTriggers);
+            renderTransactionTable(elements.optimumTransactionsContainer, bestPerf, bestSettings, filteredPrices);
+        }
+
+        elements.shortMA.value = bestShort;
+        elements.longMA.value = bestLong;
+        Object.keys(bestSettings).forEach(key => {
+            if(elements[key] && elements[key].type === 'checkbox') {
+                elements[key].checked = bestSettings[key];
+            } else if (elements[key] && elements[key].id === 'trailingStopLoss') {
+                elements[key].value = bestSettings[key];
+            }
+        });
+
+        runSimulation();
     }
     
     function renderTransactionTable(container, perf, settings, pricesData) {
