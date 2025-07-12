@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.0 -->
+    <!-- Version: 13.1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -225,7 +225,7 @@
             <div id="hoverInfoBox" class="hover-info-box"></div>
             <div id="currentSimulationResults" class="results-box hidden mt-4"></div>
             <div id="currentTransactionsContainer" class="mt-4"></div>
-            <div id="currentPotentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
+            <div id="currentNextDayAnalysisContainer" class="results-box mt-4 hidden"></div>
         </div>
 
         <div id="rsiFilteredSimulationSection" class="chart-section mt-6 border-t-4 border-indigo-300 pt-6">
@@ -237,7 +237,7 @@
             <div id="rsiFilteredHoverInfoBox" class="hover-info-box"></div>
             <div id="rsiFilteredSimulationResults" class="results-box hidden mt-4"></div>
             <div id="rsiFilteredTransactionsContainer" class="mt-4"></div>
-            <div id="filteredPotentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
+            <div id="filteredNextDayAnalysisContainer" class="results-box mt-4 hidden"></div>
         </div>
 
         <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
@@ -281,7 +281,7 @@
                 </div>
                 <div id="comprehensiveTradesTableContainer" class="mt-4"></div>
                  <div id="comprehensiveTradesSummaryContainer" class="results-box mt-4 hidden"></div>
-                 <div id="potentialSellScenariosContainer" class="results-box mt-4 hidden"></div>
+                 <div id="comprehensiveNextDayAnalysisContainer" class="results-box mt-4 hidden"></div>
             </div>
         </div>
 
@@ -427,9 +427,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         optimumTransactionsContainer: document.getElementById('optimumTransactionsContainer'),
         comprehensiveTradesTableContainer: document.getElementById('comprehensiveTradesTableContainer'),
         comprehensiveTradesSummaryContainer: document.getElementById('comprehensiveTradesSummaryContainer'),
-        potentialSellScenariosContainer: document.getElementById('potentialSellScenariosContainer'),
-        currentPotentialSellScenariosContainer: document.getElementById('currentPotentialSellScenariosContainer'),
-        filteredPotentialSellScenariosContainer: document.getElementById('filteredPotentialSellScenariosContainer'),
+        // Next Day Analysis Containers
+        comprehensiveNextDayAnalysisContainer: document.getElementById('comprehensiveNextDayAnalysisContainer'),
+        currentNextDayAnalysisContainer: document.getElementById('currentNextDayAnalysisContainer'),
+        filteredNextDayAnalysisContainer: document.getElementById('filteredNextDayAnalysisContainer'),
         // Hover Boxes
         hoverInfoBox: document.getElementById('hoverInfoBox'),
         rsiFilteredHoverInfoBox: document.getElementById('rsiFilteredHoverInfoBox'),
@@ -446,7 +447,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const hideSpinner = spinner => spinner.style.display = 'none';
 
     function formatNumber(num, decimals = 2) {
-        if (typeof num !== 'number') return num;
+        if (typeof num !== 'number' || isNaN(num)) return 'N/A';
         return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
     
@@ -604,10 +605,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if(sellReason){
                     cash = btc * price;
-                    btc = 0;
                     const buySignal = signals.filter(s => s.type === 'buy').pop();
                     const grossProfit = cash - (buySignal.btc * buySignal.price);
-                    signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason });
+                    signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason, btc });
+                    btc = 0;
                 }
 
             } else { // Not in a position, check for buy conditions
@@ -1020,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
-        renderPotentialSellScenarios(performance, settings, elements.currentPotentialSellScenariosContainer, filteredPrices);
+        renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices);
         renderTransactionTable(elements.currentTransactionsContainer, performance, settings, filteredPrices);
 
 
@@ -1029,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
-        renderPotentialSellScenarios(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredPotentialSellScenariosContainer, filteredPrices);
+        renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices);
         renderTransactionTable(elements.rsiFilteredTransactionsContainer, fullyFilteredPerformance, fullyFilteredSettings, filteredPrices);
 
         // Initial draw without hover
@@ -1047,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showResults(container, "<h3>Optimizing...</h3><p>This may take a moment.</p>");
         elements.aiAnalysisContainer.classList.add('hidden');
         elements.aiAnalysisResultBox.classList.add('hidden');
-        elements.potentialSellScenariosContainer.classList.add('hidden');
+        elements.comprehensiveNextDayAnalysisContainer.classList.add('hidden');
 
 
         setTimeout(() => {
@@ -1143,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
-                renderPotentialSellScenarios(bestPerf, bestSettings, elements.potentialSellScenariosContainer, filteredPrices);
+                renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
             } else {
@@ -1256,74 +1257,108 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function renderPotentialSellScenarios(perf, settings, container, prices) {
+    function calculateNextDayTriggers(prices, perf, settings) {
+        if (!prices || prices.length === 0) return null;
+
+        const triggers = {};
+
+        // --- Crossover Price Calculation ---
+        const short = settings.shortPeriod;
+        const long = settings.longPeriod;
+        if (prices.length >= long) {
+            const sumShort = prices.slice(-short + 1).reduce((sum, p) => sum + p.price, 0);
+            const sumLong = prices.slice(-long + 1).reduce((sum, p) => sum + p.price, 0);
+            // P = (L*sumS - S*sumL) / (S - L)
+            const crossoverPrice = (long * sumShort - short * sumLong) / (short - long);
+            triggers.crossoverPrice = crossoverPrice;
+        }
+
+        if (perf.inPositionAtEnd) { // --- SELL TRIGGERS ---
+            const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop();
+            if (lastBuySignal) {
+                triggers.buyPrice = lastBuySignal.price;
+                triggers.btcAmount = lastBuySignal.btc;
+                if (settings.useSLTP) {
+                    triggers.stopLossPrice = lastBuySignal.price * (1 - settings.stopLoss / 100);
+                    triggers.takeProfitPrice = lastBuySignal.price * (1 + settings.takeProfit / 100);
+                }
+            }
+            if (settings.useBBFilter && prices.length >= settings.bbPeriod) {
+                const sumBB = prices.slice(-settings.bbPeriod + 1).reduce((sum, p) => sum + p.price, 0);
+                // P > (sumBB + P) / K  => K*P > sumBB + P => (K-1)P > sumBB => P > sumBB / (K-1)
+                triggers.bbSellPrice = sumBB / (settings.bbPeriod - 1);
+            }
+
+        } else { // --- BUY TRIGGERS ---
+            if (settings.useBBFilter && prices.length >= settings.bbPeriod) {
+                const sumBB = prices.slice(-settings.bbPeriod + 1).reduce((sum, p) => sum + p.price, 0);
+                // P < (sumBB + P) / K => P < sumBB / (K-1)
+                triggers.bbBuyPrice = sumBB / (settings.bbPeriod - 1);
+            }
+        }
+        return triggers;
+    }
+
+    function renderNextDayTriggerAnalysis(perf, settings, container, prices) {
         if (!container || !prices || prices.length === 0) return;
-        container.classList.add('hidden'); // Hide by default
+        container.innerHTML = '';
+        container.classList.add('hidden');
+
+        const triggers = calculateNextDayTriggers(prices, perf, settings);
+        if (!triggers) return;
+
+        const lastPrice = prices[prices.length - 1].price;
+        let analysisHTML = '';
 
         if (perf.inPositionAtEnd) {
-            const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop();
-            if (!lastBuySignal) return;
+            // --- SELL ANALYSIS ---
+            const { buyPrice, btcAmount, stopLossPrice, takeProfitPrice, crossoverPrice, bbSellPrice } = triggers;
+            const currentGrossProfit = (lastPrice * btcAmount) - (buyPrice * btcAmount);
 
-            const buyPrice = lastBuySignal.price;
-            const btcAmount = lastBuySignal.btc;
-            const cashInvested = buyPrice * btcAmount;
-            const lastPrice = prices[prices.length - 1].price;
-            const currentValue = lastPrice * btcAmount;
-            const currentGrossProfit = currentValue - cashInvested;
-
-
-            let scenariosHTML = `
-                <h3>Potential Sell Scenarios for Open Position</h3>
-                <p class="description-box !mt-2 !mb-3">The simulation ended with an open position bought at <strong>$${formatNumber(buyPrice)}</strong>. This final trade is included in the portfolio value but is not yet realized profit/loss. Below are the conditions that would trigger a sell based on the strategy rules:</p>
+            analysisHTML = `
+                <h3>Next Day Sell Triggers (Open Position)</h3>
+                <p class="description-box !mt-2 !mb-3">The simulation ended with an open position bought at <strong>$${formatNumber(buyPrice)}</strong>. Current unrealized P/L is <span class="font-bold ${currentGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(currentGrossProfit)}</span>. Based on the last price of <strong>$${formatNumber(lastPrice)}</strong>, here are the prices required for a sell signal tomorrow:</p>
                 <ul class="list-disc pl-6 space-y-2">`;
-            
-             scenariosHTML += `
-                <li>
-                    <strong>Sell Today (at last known price):</strong> Selling at the last available price of ~<strong>$${formatNumber(lastPrice)}</strong>.
-                    <br>Approx. Gross P/L: <span class="font-bold ${currentGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(currentGrossProfit)}</span>
-                </li>`;
 
             if (settings.useSLTP) {
-                const slPrice = buyPrice * (1 - settings.stopLoss / 100);
-                const slValue = slPrice * btcAmount;
-                const slGrossProfit = slValue - cashInvested;
-                scenariosHTML += `
-                    <li>
-                        <strong>Stop-Loss (${settings.stopLoss}%):</strong> Sell if price drops to ~<strong>$${formatNumber(slPrice)}</strong>.
-                        <br>Approx. Gross P/L: <span class="font-bold ${slGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(slGrossProfit)}</span>
-                    </li>`;
-
-                const tpPrice = buyPrice * (1 + settings.takeProfit / 100);
-                const tpValue = tpPrice * btcAmount;
-                const tpGrossProfit = tpValue - cashInvested;
-                scenariosHTML += `
-                    <li>
-                        <strong>Take-Profit (${settings.takeProfit}%):</strong> Sell if price rises to ~<strong>$${formatNumber(tpPrice)}</strong>.
-                        <br>Approx. Gross P/L: <span class="font-bold ${tpGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(tpGrossProfit)}</span>
-                    </li>`;
+                analysisHTML += `<li><strong>Stop-Loss (${settings.stopLoss}%):</strong> Sell if price drops to ~<strong>$${formatNumber(stopLossPrice)}</strong>.</li>`;
+                analysisHTML += `<li><strong>Take-Profit (${settings.takeProfit}%):</strong> Sell if price rises to ~<strong>$${formatNumber(takeProfitPrice)}</strong>.</li>`;
+            }
+            if (crossoverPrice) {
+                 analysisHTML += `<li><strong>Death Cross:</strong> Sell if price drops to ~<strong>$${formatNumber(crossoverPrice)}</strong> to make the ${settings.shortPeriod}-day MA cross below the ${settings.longPeriod}-day MA.</li>`;
+            }
+            if (settings.useBBFilter && bbSellPrice) {
+                analysisHTML += `<li><strong>Bollinger Band:</strong> A Death Cross signal would also require the price to be above ~<strong>$${formatNumber(bbSellPrice)}</strong> (the next day's middle band). This may conflict with the Death Cross price.</li>`;
+            }
+             if (settings.useVolumeFilter) {
+                analysisHTML += `<li><strong>Volume Filter:</strong> Any MA crossover signal must be confirmed by a daily volume greater than its ${settings.volumeMAPeriod}-day average.</li>`;
             }
 
-            scenariosHTML += `
-                <li>
-                    <strong>Death Cross:</strong> Sell if the <strong>${settings.shortPeriod}-day MA</strong> crosses below the <strong>${settings.longPeriod}-day MA</strong>. The exact price depends on future market movement.
-                </li>`;
+        } else {
+            // --- BUY ANALYSIS ---
+            const { crossoverPrice, bbBuyPrice } = triggers;
 
-            if (settings.useBBFilter) {
-                 scenariosHTML += `
-                    <li>
-                        <strong>Bollinger Band:</strong> Sell if the price moves above the middle band (the <strong>${settings.bbPeriod}-day MA</strong>).
-                    </li>`;
+            analysisHTML = `
+                <h3>Next Day Buy Triggers (No Position)</h3>
+                <p class="description-box !mt-2 !mb-3">The simulation ended with no open position. Based on the last price of <strong>$${formatNumber(lastPrice)}</strong>, here are the prices required for a buy signal tomorrow:</p>
+                <ul class="list-disc pl-6 space-y-2">`;
+
+            if (crossoverPrice) {
+                analysisHTML += `<li><strong>Golden Cross:</strong> Buy if price rises to ~<strong>$${formatNumber(crossoverPrice)}</strong> to make the ${settings.shortPeriod}-day MA cross above the ${settings.longPeriod}-day MA.</li>`;
+            }
+            if (settings.useBBFilter && bbBuyPrice) {
+                analysisHTML += `<li><strong>Bollinger Band:</strong> A Golden Cross signal would also require the price to be below ~<strong>$${formatNumber(bbBuyPrice)}</strong> (the next day's middle band).</li>`;
+            }
+            if (settings.useRsiFilter) {
+                analysisHTML += `<li><strong>RSI Filter:</strong> A Golden Cross signal also requires the RSI to be below ${settings.rsiOverbought}. The next day's RSI depends on the closing price.</li>`;
             }
             if (settings.useVolumeFilter) {
-                 scenariosHTML += `
-                    <li>
-                        <strong>Volume:</strong> A Death Cross signal would also need to be confirmed by a daily volume greater than the <strong>${settings.volumeMAPeriod}-day average volume</strong>.
-                    </li>`;
+                analysisHTML += `<li><strong>Volume Filter:</strong> Any MA crossover signal must be confirmed by a daily volume greater than its ${settings.volumeMAPeriod}-day average.</li>`;
             }
-
-            scenariosHTML += '</ul>';
-            showResults(container, scenariosHTML);
         }
+
+        analysisHTML += '</ul>';
+        showResults(container, analysisHTML);
     }
     
     async function analyzeStrategyWithAI() {
@@ -1373,38 +1408,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         Do not give financial advice. The analysis should be based *only* on the provided data.`;
         
-        if (performance.inPositionAtEnd) {
-            const lastBuySignal = performance.signals.filter(s => s.type === 'buy').pop();
-            if (lastBuySignal) {
-                const buyPrice = lastBuySignal.price;
-                const btcAmount = lastBuySignal.btc;
-                const cashInvested = buyPrice * btcAmount;
-                const lastPrice = prices[prices.length - 1].price;
-                const currentValue = lastPrice * btcAmount;
-                const currentGrossProfit = currentValue - cashInvested;
+        const nextDayTriggers = calculateNextDayTriggers(prices, performance, settings);
 
-                let scenarioText = `\n\n**Additional Context: Open Position Analysis**
-                 - The simulation ended with an open trade, bought at $${formatNumber(buyPrice)}.
-                 - If sold at the last known price of $${formatNumber(lastPrice)}, the approximate gross profit/loss would be $${formatNumber(currentGrossProfit)}.`;
-
-                if (settings.useSLTP) {
-                    const slPrice = buyPrice * (1 - settings.stopLoss / 100);
-                    const slValue = slPrice * btcAmount;
-                    const slGrossProfit = slValue - cashInvested;
-
-                    const tpPrice = buyPrice * (1 + settings.takeProfit / 100);
-                    const tpValue = tpPrice * btcAmount;
-                    const tpGrossProfit = tpValue - cashInvested;
-
-                    scenarioText += `\n- The Stop-Loss is set at ~ $${formatNumber(slPrice)} (Approx. P/L: $${formatNumber(slGrossProfit)}).
-- The Take-Profit is set at ~ $${formatNumber(tpPrice)} (Approx. P/L: $${formatNumber(tpGrossProfit)}).`;
-                }
-                
-                scenarioText += `\n\n**New Task:**
-                 Please also incorporate this open position into your analysis. Briefly comment on the current state of this final trade (e.g., is it currently profitable?) and how the risk management (SL/TP levels) frames the potential outcomes.`;
-
-                prompt += scenarioText;
+        if (nextDayTriggers) {
+            let triggerText = `\n\n**Additional Context: Next Day Trigger Prices**\nBased on the last price of $${formatNumber(prices[prices.length-1].price)}, here are the approximate prices needed for a transaction tomorrow:\n`;
+            if (performance.inPositionAtEnd) {
+                triggerText += `- **Sell (Death Cross):** ~$${formatNumber(nextDayTriggers.crossoverPrice)}\n`;
+                if(nextDayTriggers.stopLossPrice) triggerText += `- **Sell (Stop-Loss):** ~$${formatNumber(nextDayTriggers.stopLossPrice)}\n`;
+                if(nextDayTriggers.takeProfitPrice) triggerText += `- **Sell (Take-Profit):** ~$${formatNumber(nextDayTriggers.takeProfitPrice)}\n`;
+            } else {
+                triggerText += `- **Buy (Golden Cross):** ~$${formatNumber(nextDayTriggers.crossoverPrice)}\n`;
             }
+            triggerText += `\n**New Task:**\nPlease also incorporate these trigger prices into your analysis. Briefly comment on how close the market is to these key levels and what that implies for the strategy's immediate future.`;
+            prompt += triggerText;
         }
 
 
