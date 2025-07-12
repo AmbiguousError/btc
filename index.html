@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.5 -->
+    <!-- Version: 13.6 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance };
         renderPerformanceResults(elements.currentSimulationResults, performance, settings);
-        renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi);
+        renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi, bb);
         renderTransactionTable(elements.currentTransactionsContainer, performance, settings, filteredPrices);
 
 
@@ -1054,7 +1054,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance };
         renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
-        renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi);
+        renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi, bb);
         renderTransactionTable(elements.rsiFilteredTransactionsContainer, fullyFilteredPerformance, fullyFilteredSettings, filteredPrices);
 
         // Initial draw without hover
@@ -1182,7 +1182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 comprehensiveStrategyData = {prices: filteredPrices, shortMA: bestShortMA, longMA: bestLongMA, bb, signals: bestPerf.signals, rsi, volumeSMA, settings: bestSettings, performance: bestPerf};
                 drawChart(chartCanvas, comprehensiveStrategyData.prices, comprehensiveStrategyData.shortMA, comprehensiveStrategyData.longMA, comprehensiveStrategyData.bb, comprehensiveStrategyData.signals, comprehensiveStrategyData.settings);
                 renderTransactionTable(elements.comprehensiveTradesTableContainer, bestPerf, bestSettings, filteredPrices);
-                renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices, bestShortMA, bestLongMA, rsi);
+                renderNextDayTriggerAnalysis(bestPerf, bestSettings, elements.comprehensiveNextDayAnalysisContainer, filteredPrices, bestShortMA, bestLongMA, rsi, bb);
                 renderPracticalExamples(bestPerf, bestSettings, elements.comprehensivePracticalExamples, filteredPrices);
                 elements.aiAnalysisContainer.classList.remove('hidden');
 
@@ -1338,7 +1338,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return triggers;
     }
 
-    function renderNextDayTriggerAnalysis(perf, settings, container, prices, shortMA, longMA, rsi) {
+    function renderNextDayTriggerAnalysis(perf, settings, container, prices, shortMA, longMA, rsi, bb) {
         if (!container || !prices || prices.length === 0) return;
         container.innerHTML = '';
         container.classList.add('hidden');
@@ -1351,6 +1351,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lastShortMA = shortMA[lastIndex];
         const lastLongMA = longMA[lastIndex];
         const lastRSI = rsi[lastIndex];
+        const lastBBUpper = bb.upper[lastIndex];
+        const lastBBLower = bb.lower[lastIndex];
 
         let analysisHTML = `
             <h3>Next Day Trigger Analysis</h3>
@@ -1363,6 +1365,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <tr><td>Short MA (${settings.shortPeriod})</td><td>$${formatNumber(lastShortMA)}</td></tr>
                 <tr><td>Long MA (${settings.longPeriod})</td><td>$${formatNumber(lastLongMA)}</td></tr>
                 <tr><td>RSI (${settings.rsiPeriod})</td><td>${formatNumber(lastRSI)}</td></tr>
+                <tr><td>BB Upper</td><td>$${formatNumber(lastBBUpper)}</td></tr>
+                <tr><td>BB Lower</td><td>$${formatNumber(lastBBLower)}</td></tr>
               </tbody>
             </table>
 
