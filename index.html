@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 13.8 -->
+    <!-- Version: 13.9 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -58,10 +58,11 @@
         }
         .input-group { display: flex; flex-direction: column; gap: 8px; }
         .input-group label, .checkbox-group label { font-weight: 600; color: #4a5568; }
-        .input-group input[type="number"], .input-group input[type="date"] {
+        .input-group input[type="number"], .input-group input[type="date"], .input-group input[type="range"] {
             padding: 10px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 1rem;
             transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
+        .input-group input[type="range"] { padding: 0; }
         .input-group input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
         .checkbox-group { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
         .btn-primary {
@@ -163,13 +164,17 @@
         <div class="date-range-section grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
              <div>
                 <h3 class="text-xl font-semibold mb-2 text-gray-700">Date Range Selection</h3>
-                <p class="description-box">Select the start and end dates for the historical data you want to analyze. The simulation and optimizations will only use data from within this time period.</p>
-                <div class="input-group"><label for="startDate">Start Date:</label><input type="date" id="startDate"></div>
+                <p class="description-box">Use the slider for quick presets or select dates manually.</p>
+                <div class="input-group">
+                    <label for="dateRangeSlider">Timeframe: <span id="dateRangeLabel" class="font-normal text-gray-500"></span></label>
+                    <input type="range" id="dateRangeSlider" min="0" max="8" value="5" class="w-full">
+                </div>
+                <div class="input-group mt-2"><label for="startDate">Start Date:</label><input type="date" id="startDate"></div>
             </div>
             <div>
                 <h3 class="text-xl font-semibold mb-2 text-gray-700">&nbsp;</h3>
-                <p class="description-box">&nbsp;</p>
-                <div class="input-group"><label for="endDate">End Date:</label><input type="date" id="endDate"></div>
+                 <p class="description-box">&nbsp;</p>
+                 <div class="input-group mt-2"><label for="endDate">End Date:</label><input type="date" id="endDate"></div>
             </div>
         </div>
 
@@ -379,6 +384,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             data: [40, 10, 35, 10, 30, 10, 25, 10, 5, 0]
         }
     };
+    const dateRanges = [
+        { label: 'Last Week', days: 7 },
+        { label: 'Last Month', days: 30 },
+        { label: 'Last 3 Months', days: 90 },
+        { label: 'Last 6 Months', days: 180 },
+        { label: 'Last 9 Months', days: 270 },
+        { label: 'Last Year', days: 365 },
+        { label: 'Last 3 Years', days: 365 * 3 },
+        { label: 'Last 5 Years', days: 365 * 5 },
+        { label: 'Max', days: Infinity },
+        { label: 'Custom', days: null },
+    ];
 
     // --- DOM Element Cache ---
     const elements = {
@@ -395,6 +412,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Inputs & Selectors
         startDate: document.getElementById('startDate'),
         endDate: document.getElementById('endDate'),
+        dateRangeSlider: document.getElementById('dateRangeSlider'),
+        dateRangeLabel: document.getElementById('dateRangeLabel'),
         initialInvestment: document.getElementById('initialInvestment'),
         taxRate: document.getElementById('taxRate'),
         serviceFee: document.getElementById('serviceFee'),
@@ -749,6 +768,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         drawDataLine(ctx, createPoints(prices, getY), '#3b82f6', 2);
         drawDataLine(ctx, createPoints(shortMA, getY), '#ef4444', 1.5);
         drawDataLine(ctx, createPoints(longMA, getY), '#10b981', 1.5);
+        drawDataLine(ctx, createPoints(bb.middle, getY), '#a78bfa', 1, true);
         
         // Bollinger Bands Lines
         drawDataLine(ctx, createPoints(bb.upper, getY), 'rgba(129, 140, 248, 0.5)', 1, true); 
@@ -809,6 +829,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <strong>Price:</strong> $${formatNumber(prices[i])}<br>
                                 <strong>Short MA:</strong> ${shortMA[i] ? '$' + formatNumber(shortMA[i]) : 'N/A'}<br>
                                 <strong>Long MA:</strong> ${longMA[i] ? '$' + formatNumber(longMA[i]) : 'N/A'}<br>
+                                <strong>BB Middle:</strong> ${bb.middle[i] ? '$' + formatNumber(bb.middle[i]) : 'N/A'}<br>
                                 <strong>BB Upper:</strong> ${bb.upper[i] ? '$' + formatNumber(bb.upper[i]) : 'N/A'}<br>
                                 <strong>BB Lower:</strong> ${bb.lower[i] ? '$' + formatNumber(bb.lower[i]) : 'N/A'}`;
                 showHoverBox(hoverInfo.box, infoHtml, hoverInfo.x, hoverInfo.y, canvas);
@@ -840,7 +861,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        let legend = [{c: '#3b82f6', t: 'Price'}, {c: '#ef4444', t: 'Short MA'}, {c: '#10b981', t: 'Long MA'}];
+        let legend = [{c: '#3b82f6', t: 'Price'}, {c: '#ef4444', t: 'Short MA'}, {c: '#10b981', t: 'Long MA'}, {c: '#a78bfa', t: 'BB Middle', dashed: true}];
         if(settings.useSLTP) {
              legend.push({c: '#ef4444', t: 'Stop-Loss', dashed: true}, {c: '#22c55e', t: 'Take-Profit', dashed: true});
         }
@@ -1277,12 +1298,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <table class="data-preview-table w-full">
                     <thead>
                         <tr>
-                            <th>Buy Date</th>
-                            <th>Buy Price</th>
-                            <th>Sell Date</th>
-                            <th>Sell Price</th>
-                            <th>Reason</th>
-                            <th>Gross P/L</th>
+                            <th>Buy Date</th><th>Buy Value</th><th>Sell Date</th><th>Sell Value</th><th>Reason</th><th>Return</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1290,16 +1306,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let totalGrossProfit = 0;
         trades.forEach(trade => {
+            const buyValue = trade.buy.price * trade.buy.btc;
+            const sellValue = trade.sell.price * trade.sell.btc;
+            const returnPercent = (trade.sell.grossProfit / buyValue) * 100;
             totalGrossProfit += trade.sell.grossProfit;
             const profitColor = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
             tableHTML += `
                 <tr>
                     <td>${new Date(pricesData[trade.buy.index].date).toLocaleDateString()}</td>
-                    <td>$${formatNumber(trade.buy.price)}</td>
+                    <td>$${formatNumber(buyValue)}</td>
                     <td>${new Date(pricesData[trade.sell.index].date).toLocaleDateString()}</td>
-                    <td>$${formatNumber(trade.sell.price)}</td>
+                    <td>$${formatNumber(sellValue)}</td>
                     <td>${formatReason(trade.sell.reason)}</td>
-                    <td class="${profitColor}">$${formatNumber(trade.sell.grossProfit)}</td>
+                    <td class="${profitColor}">${formatNumber(returnPercent)}%</td>
                 </tr>
             `;
         });
@@ -1611,6 +1630,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pattern = patternData[selectedPatternKey];
             drawPatternChart(pattern.data, pattern.name);
         });
+
+        elements.dateRangeSlider.addEventListener('input', () => {
+            const range = dateRanges[elements.dateRangeSlider.value];
+            elements.dateRangeLabel.textContent = range.label;
+            if (range.days !== null) {
+                const endDate = new Date(historicalPrices[historicalPrices.length - 1].date);
+                const startDate = new Date(endDate);
+                if(isFinite(range.days)) {
+                    startDate.setDate(endDate.getDate() - range.days);
+                } else {
+                    startDate.setTime(new Date(historicalPrices[0].date).getTime());
+                }
+                elements.endDate.value = endDate.toISOString().split('T')[0];
+                elements.startDate.value = startDate.toISOString().split('T')[0];
+                runSimulation();
+            }
+        });
+
+        elements.startDate.addEventListener('change', () => {
+            elements.dateRangeSlider.value = dateRanges.length - 1; // Set to "Custom"
+            elements.dateRangeLabel.textContent = 'Custom';
+        });
+        elements.endDate.addEventListener('change', () => {
+            elements.dateRangeSlider.value = dateRanges.length - 1; // Set to "Custom"
+            elements.dateRangeLabel.textContent = 'Custom';
+        });
         
         const createHoverListener = (container, redrawFn, getHoverBox) => {
              if (!container) return;
@@ -1630,14 +1675,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         createHoverListener(elements.optimumStrategyChartSection, (hover) => {
             if(!optimumStrategyData) return;
-            const {prices, shortMA, longMA, bb, signals, settings} = optimumStrategyData;
-            drawChart(elements.optimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover);
+            const {prices, shortMA, longMA, bb, signals, settings, triggers} = optimumStrategyData;
+            drawChart(elements.optimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover, triggers);
         }, () => elements.optimumHoverInfoBox);
 
         createHoverListener(elements.comprehensiveOptimumStrategyChartSection, (hover) => {
              if(!comprehensiveStrategyData) return;
-            const {prices, shortMA, longMA, bb, signals, settings} = comprehensiveStrategyData;
-            drawChart(elements.comprehensiveOptimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover);
+            const {prices, shortMA, longMA, bb, signals, settings, triggers} = comprehensiveStrategyData;
+            drawChart(elements.comprehensiveOptimumChartCanvas, prices, shortMA, longMA, bb, signals, settings, hover, triggers);
         }, () => elements.comprehensiveOptimumHoverInfoBox);
     }
 
@@ -1645,12 +1690,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         defaultSettings = getSettings();
         historicalPrices = await fetchCSV('./btc-usd-max.csv');
         if (historicalPrices.length > 0) {
-            const lastDate = new Date(historicalPrices[historicalPrices.length - 1].date);
-            elements.endDate.value = lastDate.toISOString().split('T')[0];
-            const oneYearAgo = new Date(lastDate);
-            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-            elements.startDate.value = oneYearAgo.toISOString().split('T')[0];
-            runSimulation();
+            elements.dateRangeSlider.value = 5; // Default to 1 year
+            elements.dateRangeSlider.dispatchEvent(new Event('input'));
         }
         setupEventListeners();
         window.addEventListener('resize', () => {
