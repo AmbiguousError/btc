@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
-    <!-- Version: 13.9 -->
+    <!-- Version: 14.0 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -85,8 +85,8 @@
         }
         .results-box { background-color: #edf2f7; border-radius: 10px; padding: 20px; border: 1px solid #d1d5db; }
         .explanation-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .explanation-box h3, .results-box h3, .optimization-results h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; color: #2d3748; }
-        .explanation-box p, .results-box p, .optimization-results p { font-size: 0.95rem; line-height: 1.6; color: #4a5568; }
+        .explanation-box h3, .results-box h3, .optimisation-results h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; color: #2d3748; }
+        .explanation-box p, .results-box p, .optimisation-results p { font-size: 0.95rem; line-height: 1.6; color: #4a5568; }
         .message-box { background-color: #fefcbf; border: 1px solid #fbd38d; color: #92400e; padding: 15px; border-radius: 8px; margin-top: 15px; font-weight: 500; text-align: center; }
         .error-message { background-color: #fed7d7; border-color: #fc8181; color: #c53030; }
         .warning-message { background-color: #ffe8d1; border: 1px solid #ffcc80; color: #a0522d; }
@@ -94,7 +94,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .hover-info-box { background-color: #1a202c; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.875rem; position: absolute; z-index: 10; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: none; }
         .chart-section { border: 1px solid #e2e8f0; border-radius: 15px; padding: 20px; background-color: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .optimization-results { background-color: #e0f2fe; border-radius: 10px; padding: 20px; border: 1px solid #90cdf4; margin-top: 20px; }
+        .optimisation-results { background-color: #e0f2fe; border-radius: 10px; padding: 20px; border: 1px solid #90cdf4; margin-top: 20px; }
         .data-preview-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; text-align: left; }
         .data-preview-table th, .data-preview-table td { border: 1px solid #e2e8f0; padding: 8px 12px; }
         .data-preview-table th { background-color: #e9eef4; font-weight: 600; color: #4a5568; }
@@ -135,9 +135,9 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">BTC/USD Trading Opportunity Identifier</h1>
-        <p class="text-gray-600 text-center mb-6">
-            This model uses historical BTC/USD data, a Moving Average Crossover strategy, and an optional RSI filter to find and optimize trading signals.
+        <h1 class="text-3xl font-bold text-center text-grey-800 mb-4">BTC/USD Trading Opportunity Identifier</h1>
+        <p class="text-grey-600 text-center mb-6">
+            This model uses historical BTC/USD data, a Moving Average Crossover strategy, and an optional RSI filter to find and optimise trading signals.
         </p>
 
         <div class="explanation-box">
@@ -163,24 +163,24 @@
         
         <div class="date-range-section grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
              <div>
-                <h3 class="text-xl font-semibold mb-2 text-gray-700">Date Range Selection</h3>
+                <h3 class="text-xl font-semibold mb-2 text-grey-700">Date Range Selection</h3>
                 <p class="description-box">Use the slider for quick presets or select dates manually.</p>
                 <div class="input-group">
-                    <label for="dateRangeSlider">Timeframe: <span id="dateRangeLabel" class="font-normal text-gray-500"></span></label>
+                    <label for="dateRangeSlider">Timeframe: <span id="dateRangeLabel" class="font-normal text-grey-500"></span></label>
                     <input type="range" id="dateRangeSlider" min="0" max="8" value="5" class="w-full">
                 </div>
                 <div class="input-group mt-2"><label for="startDate">Start Date:</label><input type="date" id="startDate"></div>
             </div>
             <div>
-                <h3 class="text-xl font-semibold mb-2 text-gray-700">&nbsp;</h3>
+                <h3 class="text-xl font-semibold mb-2 text-grey-700">&nbsp;</h3>
                  <p class="description-box">&nbsp;</p>
                  <div class="input-group mt-2"><label for="endDate">End Date:</label><input type="date" id="endDate"></div>
             </div>
         </div>
 
-        <div class="border-t border-gray-200 pt-6">
+        <div class="border-t border-grey-200 pt-6">
              <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">Strategy Parameters</h2>
+                <h2 class="text-2xl font-bold text-grey-800">Strategy Parameters</h2>
                 <button id="resetToDefaultsBtn" class="btn-primary btn-secondary text-sm">Reset</button>
             </div>
              <p class="description-box">
@@ -208,15 +208,15 @@
 
 
                 <div class="checkbox-group mt-4 col-span-2 md:col-span-4 flex-wrap">
-                    <input type="checkbox" id="useSLTP" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <input type="checkbox" id="useSLTP" checked class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useSLTP" class="mr-4">Use Fixed SL/TP</label>
-                    <input type="checkbox" id="useTrailingStopLoss" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <input type="checkbox" id="useTrailingStopLoss" class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useTrailingStopLoss" class="mr-4">Use Trailing SL</label>
-                    <input type="checkbox" id="useRsiFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <input type="checkbox" id="useRsiFilter" checked class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useRsiFilter" class="mr-4">Use RSI Filter</label>
-                     <input type="checkbox" id="useBBFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                     <input type="checkbox" id="useBBFilter" checked class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useBBFilter" class="mr-4">Use BB Filter</label>
-                    <input type="checkbox" id="useVolumeFilter" checked class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <input type="checkbox" id="useVolumeFilter" checked class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useVolumeFilter">Use Volume Filter</label>
                 </div>
             </div>
@@ -230,8 +230,8 @@
         </div>
         
         <div id="currentSimulationSection" class="chart-section mt-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Current Strategy Simulation</h2>
-            <p class="description-box">This section visualizes the performance of the strategy defined in the 'Strategy Parameters' section. The main chart shows the BTC price, moving averages, and buy/sell signals. The smaller charts below display the corresponding RSI and Volume data for the same period.</p>
+            <h2 class="text-2xl font-bold text-grey-800 mb-4 text-center">Current Strategy Simulation</h2>
+            <p class="description-box">This section visualises the performance of the strategy defined in the 'Strategy Parameters' section. The main chart shows the BTC price, moving averages, and buy/sell signals. The smaller charts below display the corresponding RSI and Volume data for the same period.</p>
             <div id="loadingSpinner" class="loading-spinner"></div>
             <canvas id="currentChartCanvas"></canvas>
             <canvas id="rsiChartCanvas" class="mt-4"></canvas>
@@ -243,7 +243,7 @@
         </div>
 
         <div id="rsiFilteredSimulationSection" class="chart-section mt-6 border-t-4 border-indigo-300 pt-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Fully-Filtered Strategy Simulation</h2>
+            <h2 class="text-2xl font-bold text-grey-800 mb-4 text-center">Fully-Filtered Strategy Simulation</h2>
              <p class="description-box">This chart provides a direct comparison by running the exact same simulation as above, but with <strong>all filters (RSI, Bollinger Bands, Volume) forcibly enabled</strong>. This helps you quickly assess the impact of adding these confirmation layers to your base MA-crossover strategy.</p>
             <canvas id="rsiFilteredChartCanvas"></canvas>
             <canvas id="rsiFilteredRsiChartCanvas" class="mt-4"></canvas>
@@ -254,49 +254,49 @@
             <div id="filteredNextDayAnalysisContainer" class="results-box mt-4 hidden"></div>
         </div>
 
-        <div class="optimization-section border-t border-gray-200 pt-6 mt-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Manual Strategy Optimization</h2>
-            <p class="description-box">Instead of testing one strategy at a time, this tool lets you find the best performing Moving Average combination within a range you define. It will test every short MA period against every long MA period in the ranges below. The filters used for this optimization are based on what is currently selected in the 'Strategy Parameters' section above.</p>
+        <div class="optimisation-section border-t border-grey-200 pt-6 mt-6">
+            <h2 class="text-2xl font-bold text-grey-800 mb-4 text-center">Manual Strategy Optimisation</h2>
+            <p class="description-box">Instead of testing one strategy at a time, this tool lets you find the best performing Moving Average combination within a range you define. It will test every short MA period against every long MA period in the ranges below. The filters used for this optimisation are based on what is currently selected in the 'Strategy Parameters' section above.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="input-group"><label for="minShortMA">Min Short MA:</label><input type="number" id="minShortMA" value="2"></div>
                 <div class="input-group"><label for="maxShortMA">Max Short MA:</label><input type="number" id="maxShortMA" value="10"></div>
                 <div class="input-group"><label for="minLongMA">Min Long MA:</label><input type="number" id="minLongMA" value="11"></div>
                 <div class="input-group"><label for="maxLongMA">Max Long MA:</label><input type="number" id="maxLongMA" value="30"></div>
             </div>
-             <p class="description-box mt-4"><strong>Find Optimum Strategy Button:</strong> Click this to start the optimization process based on the MA ranges you entered. The system will find the most profitable combination and display the results.</p>
+             <p class="description-box mt-4"><strong>Find Optimum Strategy Button:</strong> Click this to start the optimisation process based on the MA ranges you entered. The system will find the most profitable combination and display the results.</p>
             <button id="findOptimumBtn" class="btn-primary w-full mt-2">Find Optimum Strategy</button>
-            <div id="optimizationSpinner" class="loading-spinner"></div>
-            <div id="optimizationResults" class="optimization-results hidden mt-4"></div>
+            <div id="optimisationSpinner" class="loading-spinner"></div>
+            <div id="optimisationResults" class="optimisation-results hidden mt-4"></div>
             <div id="optimumStrategyChartSection" class="chart-section mt-4 hidden">
-                <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">Optimum Strategy Chart</h3>
-                <p class="description-box">This chart visualizes the performance of the best strategy found during the manual optimization process.</p>
+                <h3 class="text-xl font-bold text-grey-800 mb-2 text-center">Optimum Strategy Chart</h3>
+                <p class="description-box">This chart visualises the performance of the best strategy found during the manual optimisation process.</p>
                 <canvas id="optimumChartCanvas"></canvas>
                 <div id="optimumHoverInfoBox" class="hover-info-box"></div>
                 <div id="optimumTransactionsContainer" class="mt-4"></div>
             </div>
         </div>
 
-        <div class="comprehensive-optimization-section border-t border-gray-200 pt-6 mt-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Comprehensive Strategy Optimization</h2>
+        <div class="comprehensive-optimisation-section border-t border-grey-200 pt-6 mt-6">
+            <h2 class="text-2xl font-bold text-grey-800 mb-4 text-center">Comprehensive Strategy Optimisation</h2>
             <p class="description-box">This is the most powerful tool. It performs an exhaustive search (a "grid search") by testing every possible combination of the parameters below to find the absolute best-performing strategy.
                 <br>• <b>MA Periods:</b> Short (2-60) vs. Long (up to 120).
                 <br>• <b>Filter Combinations:</b> All 32 on/off combinations of the 5 filters.
                 <br>• <b>Trailing SL %:</b> A range of values (1%, 3%, 5%, 10%, 15%, 20%) are tested if Trailing SL is active.
-                <br><b>Note:</b> For other filters (Fixed SL/TP, RSI, etc.), the optimization tests their on/off state but uses the single value set in the main "Strategy Parameters" panel. Optimizing their values is a potential future enhancement.
+                <br><b>Note:</b> For other filters (Fixed SL/TP, RSI, etc.), the optimisation tests their on/off state but uses the single value set in the main "Strategy Parameters" panel. It does not currently test a range of different periods or levels for these specific filters, which is a potential future enhancement.
             </p>
             <p class="description-box mt-4"><strong>Find Comprehensive Optimum Strategy Button:</strong> Click to begin the intensive search. This may take a few moments. The results will include the best parameters, filter settings, performance metrics, and a detailed trade log.</p>
             <button id="findComprehensiveOptimumBtn" class="btn-primary w-full mt-2">Find Comprehensive Optimum Strategy</button>
-            <div id="comprehensiveOptimizationSpinner" class="loading-spinner"></div>
-            <div id="comprehensiveOptimizationProgress" class="text-sm text-gray-600 text-center mt-2"></div>
-            <div id="comprehensiveOptimizationResults" class="optimization-results hidden mt-4"></div>
+            <div id="comprehensiveOptimisationSpinner" class="loading-spinner"></div>
+            <div id="comprehensiveOptimisationProgress" class="text-sm text-grey-600 text-center mt-2"></div>
+            <div id="comprehensiveOptimisationResults" class="optimisation-results hidden mt-4"></div>
             <div id="comprehensiveOptimumStrategyChartSection" class="chart-section mt-4 hidden">
-                 <h3 class="text-xl font-bold text-gray-800 mb-2 text-center">Comprehensive Optimum Strategy Chart</h3>
-                <p class="description-box">This chart visualizes the single best strategy found by the comprehensive optimization. Below, you can get an AI analysis of this strategy and see a detailed log of every trade it made.</p>
+                 <h3 class="text-xl font-bold text-grey-800 mb-2 text-center">Comprehensive Optimum Strategy Chart</h3>
+                <p class="description-box">This chart visualises the single best strategy found by the comprehensive optimisation. Below, you can get an AI analysis of this strategy and see a detailed log of every trade it made.</p>
                 <canvas id="comprehensiveOptimumChartCanvas"></canvas>
                 <div id="comprehensiveOptimumHoverInfoBox" class="hover-info-box"></div>
                  <div id="aiAnalysisContainer" class="mt-4 hidden">
-                     <p class="description-box"><strong>Analyze Optimum Strategy with AI Button:</strong> After finding the comprehensive optimum strategy, click this button to send the results to a generative AI. It will provide a qualitative analysis of the strategy's characteristics, potential strengths, and weaknesses based on its performance.</p>
-                    <button id="analyzeStrategyBtn" class="btn-primary btn-ai w-full mt-2">✨ Analyze Optimum Strategy with AI</button>
+                     <p class="description-box"><strong>Analyse Optimum Strategy with AI Button:</strong> After finding the comprehensive optimum strategy, click this button to send the results to a generative AI. It will provide a qualitative analysis of the strategy's characteristics, potential strengths, and weaknesses based on its performance.</p>
+                    <button id="analyseStrategyBtn" class="btn-primary btn-ai w-full mt-2">✨ Analyse Optimum Strategy with AI</button>
                     <div id="aiAnalysisResultBox" class="ai-analysis-box hidden mt-4"></div>
                 </div>
                 <div id="comprehensiveTradesTableContainer" class="mt-4"></div>
@@ -308,13 +308,13 @@
 
         <div class="explanation-box mt-6">
             <h3>Advanced Analysis: Combining Patterns with Quantitative Signals</h3>
-            <p>While this tool focuses on quantitative signals (mathematical calculations like moving averages), many traders combine this with qualitative analysis, such as identifying chart patterns. The theory is that since markets are driven by human psychology, emotional buying and selling can create recognizable, repeating shapes in the price chart.</p>
+            <p>While this tool focuses on quantitative signals (mathematical calculations like moving averages), many traders combine this with qualitative analysis, such as identifying chart patterns. The theory is that since markets are driven by human psychology, emotional buying and selling can create recognisable, repeating shapes in the price chart.</p>
             
             <h4 class="text-lg font-semibold mt-4 mb-2">Classic Chart Patterns (Fractal Analysis)</h4>
-            <p>These are examples of recurring shapes that traders watch for. Use the dropdown below to see an idealized visualization of each pattern.</p>
+            <p>These are examples of recurring shapes that traders watch for. Use the dropdown below to see an idealised visualisation of each pattern.</p>
              <div class="pattern-chart-container">
-                <label for="patternSelector" class="font-semibold text-gray-700">Visualize a Pattern:</label>
-                <select id="patternSelector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                <label for="patternSelector" class="font-semibold text-grey-700">Visualise a Pattern:</label>
+                <select id="patternSelector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-grey-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                     <option value="headAndShoulders">Head and Shoulders</option>
                     <option value="inverseHeadAndShoulders">Inverse Head and Shoulders</option>
                     <option value="cupAndHandle">Cup and Handle</option>
@@ -338,7 +338,7 @@
             <ol class="list-decimal pl-6 mt-1 space-y-2">
                 <li><strong>Visual Identification:</strong> First, you visually identify a potential pattern (e.g., a "Cup and Handle") forming on a live chart. This forms your trading hypothesis.</li>
                 <li><strong>Historical Validation:</strong> Find a past instance where a similar pattern occurred. Use the <strong>Date Range Selection</strong> in this tool to isolate that historical period.</li>
-                <li><strong>Quantitative Analysis:</strong> Run the <strong>"Comprehensive Strategy Optimization"</strong> for that specific historical timeframe. The tool will find the most profitable quantitative signals (MA periods, filters, etc.) that worked *during that specific pattern*.</li>
+                <li><strong>Quantitative Analysis:</strong> Run the <strong>"Comprehensive Strategy Optimisation"</strong> for that specific historical timeframe. The tool will find the most profitable quantitative signals (MA periods, filters, etc.) that worked *during that specific pattern*.</li>
                 <li><strong>Apply to the Present:</strong> You now have a concrete, data-backed strategy (e.g., "a 12/26 day MA crossover with a volume filter"). You can watch the current, live pattern and use the exact signals found by the tool as your confirmation to enter or exit a trade. This combines the "what" (the visual pattern) with the "when" (the data-driven signal).</li>
             </ol>
         </div>
@@ -445,16 +445,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         findComprehensiveOptimumBtn: document.getElementById('findComprehensiveOptimumBtn'),
         // Spinners
         loadingSpinner: document.getElementById('loadingSpinner'),
-        optimizationSpinner: document.getElementById('optimizationSpinner'),
-        comprehensiveOptimizationSpinner: document.getElementById('comprehensiveOptimizationSpinner'),
+        optimisationSpinner: document.getElementById('optimisationSpinner'),
+        comprehensiveOptimisationSpinner: document.getElementById('comprehensiveOptimisationSpinner'),
         // Results & Info
         dataPreviewSection: document.getElementById('dataPreviewSection'),
         dataPreviewTableBody: document.getElementById('dataPreviewTableBody'),
         currentSimulationResults: document.getElementById('currentSimulationResults'),
         rsiFilteredSimulationResults: document.getElementById('rsiFilteredSimulationResults'),
-        optimizationResults: document.getElementById('optimizationResults'),
-        comprehensiveOptimizationResults: document.getElementById('comprehensiveOptimizationResults'),
-        comprehensiveOptimizationProgress: document.getElementById('comprehensiveOptimizationProgress'),
+        optimisationResults: document.getElementById('optimisationResults'),
+        comprehensiveOptimisationResults: document.getElementById('comprehensiveOptimisationResults'),
+        comprehensiveOptimisationProgress: document.getElementById('comprehensiveOptimisationProgress'),
         currentSimulationSection: document.getElementById('currentSimulationSection'),
         rsiFilteredSimulationSection: document.getElementById('rsiFilteredSimulationSection'),
         optimumStrategyChartSection: document.getElementById('optimumStrategyChartSection'),
@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comprehensiveOptimumHoverInfoBox: document.getElementById('comprehensiveOptimumHoverInfoBox'),
         // AI elements
         aiAnalysisContainer: document.getElementById('aiAnalysisContainer'),
-        analyzeStrategyBtn: document.getElementById('analyzeStrategyBtn'),
+        analyseStrategyBtn: document.getElementById('analyseStrategyBtn'),
         aiAnalysisResultBox: document.getElementById('aiAnalysisResultBox'),
     };
 
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function formatNumber(num, decimals = 2) {
         if (typeof num !== 'number' || isNaN(num)) return 'N/A';
-        return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        return num.toLocaleString('en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
     
     function showResults(container, content) {
@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cell.textContent = '...';
                 cell.style.textAlign = 'center';
             } else {
-                row.insertCell().textContent = new Date(rowData.date).toLocaleDateString();
+                row.insertCell().textContent = new Date(rowData.date).toLocaleDateString('en-GB');
                 row.insertCell().textContent = `$${formatNumber(rowData.price)}`;
             }
         });
@@ -825,7 +825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             drawCrosshair(ctx, hoverInfo.x, hoverInfo.y, width, height);
             const i = Math.round(hoverInfo.x / xScale);
             if (pricesData[i]) {
-                const infoHtml = `<strong>Date:</strong> ${new Date(pricesData[i].date).toLocaleDateString()}<br>
+                const infoHtml = `<strong>Date:</strong> ${new Date(pricesData[i].date).toLocaleDateString('en-GB')}<br>
                                 <strong>Price:</strong> $${formatNumber(prices[i])}<br>
                                 <strong>Short MA:</strong> ${shortMA[i] ? '$' + formatNumber(shortMA[i]) : 'N/A'}<br>
                                 <strong>Long MA:</strong> ${longMA[i] ? '$' + formatNumber(longMA[i]) : 'N/A'}<br>
@@ -857,7 +857,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const index = Math.floor(i * (pricesData.length - 1) / (numXLabels - 1));
                 const x = getX(index);
                 ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
-                ctx.textAlign = 'center'; ctx.fillText(new Date(pricesData[index].date).toLocaleDateString(), x, height - 5);
+                ctx.textAlign = 'center'; ctx.fillText(new Date(pricesData[index].date).toLocaleDateString('en-GB'), x, height - 5);
             }
         }
 
@@ -994,7 +994,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const hideHoverBox = box => { if(box) box.style.display = 'none'; };
 
-    // --- Simulation & Optimization Logic ---
+    // --- Simulation & Optimisation Logic ---
     function getSettings() {
         return {
             initialInvestment: parseFloat(elements.initialInvestment.value),
@@ -1107,13 +1107,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function findOptimum(isComprehensive = false) {
         const settings = getSettings();
         filteredPrices = filterDataByDateRange(historicalPrices, settings.startDate, settings.endDate);
-        const container = isComprehensive ? elements.comprehensiveOptimizationResults : elements.optimizationResults;
-        const spinner = isComprehensive ? elements.comprehensiveOptimizationSpinner : elements.optimizationSpinner;
-        const progressDiv = elements.comprehensiveOptimizationProgress;
+        const container = isComprehensive ? elements.comprehensiveOptimisationResults : elements.optimisationResults;
+        const spinner = isComprehensive ? elements.comprehensiveOptimisationSpinner : elements.optimisationSpinner;
+        const progressDiv = elements.comprehensiveOptimisationProgress;
         
         showSpinner(spinner);
-        progressDiv.innerHTML = 'Preparing optimization...';
-        showResults(container, "<h3>Optimizing...</h3><p>This may take a moment. See progress below.</p>");
+        progressDiv.innerHTML = 'Preparing optimisation...';
+        showResults(container, "<h3>Optimising...</h3><p>This may take a moment. See progress below.</p>");
         elements.aiAnalysisContainer.classList.add('hidden');
         elements.aiAnalysisResultBox.classList.add('hidden');
         elements.comprehensiveNextDayAnalysisContainer.classList.add('hidden');
@@ -1145,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const maxShortComprehensive = 60; 
             const maxLongComprehensive = 120;
             if (maxLongComprehensive > filteredPrices.length) {
-                showResults(container, `<div class="warning-message">Not enough data for comprehensive optimization. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
+                showResults(container, `<div class="warning-message">Not enough data for comprehensive optimisation. Need ${maxLongComprehensive} data points, but only have ${filteredPrices.length} in the selected range.</div>`);
                 hideSpinner(spinner);
                 return;
             }
@@ -1187,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-        } else { // Manual Optimization
+        } else { // Manual Optimisation
             const minShort = parseInt(elements.minShortMA.value);
             const maxShort = parseInt(elements.maxShortMA.value);
             const minLong = parseInt(elements.minLongMA.value);
@@ -1205,7 +1205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        progressDiv.innerHTML = `Optimization complete. Found best strategy.`;
+        progressDiv.innerHTML = `Optimisation complete. Found best strategy.`;
         hideSpinner(spinner);
         const netProfit = bestPerf.finalValue - settings.initialInvestment;
         const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
@@ -1222,12 +1222,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             <h3>Optimum Strategy Found:</h3>
             <p>Short MA: ${bestShort}, Long MA: ${bestLong}</p>
             <p>Enabled Filters: <span class="font-semibold">${enabledFilters}</span></p>
-            <hr class="my-2 border-gray-300">
+            <hr class="my-2 border-grey-300">
             <p>Final Value: <span class="font-bold">$${formatNumber(bestPerf.finalValue)}</span></p>
             <p>Net Profit: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
         `);
 
-        const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimumStrategyChartSection;
+        const chartSection = isComprehensive ? elements.comprehensiveOptimumStrategyChartSection : elements.optimisationResults;
         const chartCanvas = isComprehensive ? elements.comprehensiveOptimumChartCanvas : elements.optimumChartCanvas;
         chartSection.classList.remove('hidden');
         const bestShortMA = calculateSMA(filteredPrices, bestShort, 'price');
@@ -1292,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         let tableHTML = `
-            <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Log:</h4>
+            <h4 class="text-lg font-bold text-grey-700 mb-2">Trade Log:</h4>
             <p class="description-box">This table shows a detailed record of every buy and sell transaction executed by this strategy.</p>
             <div class="overflow-x-auto">
                 <table class="data-preview-table w-full">
@@ -1313,9 +1313,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const profitColor = trade.sell.grossProfit >= 0 ? 'text-green-600' : 'text-red-600';
             tableHTML += `
                 <tr>
-                    <td>${new Date(pricesData[trade.buy.index].date).toLocaleDateString()}</td>
+                    <td>${new Date(pricesData[trade.buy.index].date).toLocaleDateString('en-GB')}</td>
                     <td>$${formatNumber(buyValue)}</td>
-                    <td>${new Date(pricesData[trade.sell.index].date).toLocaleDateString()}</td>
+                    <td>${new Date(pricesData[trade.sell.index].date).toLocaleDateString('en-GB')}</td>
                     <td>$${formatNumber(sellValue)}</td>
                     <td>${formatReason(trade.sell.reason)}</td>
                     <td class="${profitColor}">${formatNumber(returnPercent)}%</td>
@@ -1339,11 +1339,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const netProfit = totalGrossProfit - fee - tax;
 
             const summaryHTML = `
-                <h4 class="text-lg font-bold text-gray-700 mb-2">Trade Summary:</h4>
+                <h4 class="text-lg font-bold text-grey-700 mb-2">Trade Summary:</h4>
                 <p>Total Gross Profit: <span class="${totalGrossProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(totalGrossProfit)}</span></p>
                 <p>Service Fees: <span class="text-red-600">-$${formatNumber(fee)}</span></p>
                 <p>Tax on Gains: <span class="text-red-600">-$${formatNumber(tax)}</span></p>
-                <p class="font-bold border-t border-gray-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
+                <p class="font-bold border-t border-grey-300 mt-1 pt-1">Net Profit: <span class="${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">$${formatNumber(netProfit)}</span></p>
             `;
             showResults(elements.comprehensiveTradesSummaryContainer, summaryHTML);
             elements.comprehensiveTradesSummaryContainer.classList.remove('hidden');
@@ -1476,7 +1476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!triggers) return;
 
         let examplesHTML = `
-            <h3 class="text-xl font-bold text-gray-800 mb-2">Practical Examples for This Strategy</h3>
+            <h3 class="text-xl font-bold text-grey-800 mb-2">Practical Examples for This Strategy</h3>
             <p class="description-box">This is a hypothetical guide on how to interpret the 'Next Day Trigger' analysis for the optimal strategy found above.</p>
         `;
 
@@ -1518,15 +1518,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         showResults(container, examplesHTML);
     }
     
-    async function analyzeStrategyWithAI() {
+    async function analyseStrategyWithAI() {
         if (!comprehensiveStrategyData) {
-            alert("Please run a Comprehensive Optimization first.");
+            alert("Please run a Comprehensive Optimisation first.");
             return;
         }
 
         const { settings, performance, prices } = comprehensiveStrategyData;
         const resultBox = elements.aiAnalysisResultBox;
-        resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analyzing strategy...</p>';
+        resultBox.innerHTML = '<div class="loading-spinner" style="display: block;"></div> <p class="text-center">Analysing strategy...</p>';
         resultBox.classList.remove('hidden');
 
         const { finalValue } = performance;
@@ -1543,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let prompt = `You are a helpful trading strategy analyst.
 
-        Based on the following **optimized** trading strategy parameters and its performance results for Bitcoin (BTC/USD), provide a concise analysis.
+        Based on the following **optimised** trading strategy parameters and its performance results for Bitcoin (BTC/USD), provide a concise analysis.
 
         **Strategy Context:**
         - The strategy was tested on historical data from **${settings.startDate} to ${settings.endDate}**.
@@ -1561,8 +1561,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         **Your Task:**
         Write a brief, easy-to-understand analysis (2-3 paragraphs) in HTML format. Use <p> tags for paragraphs. Cover:
         1. A summary of the strategy's overall approach, mentioning the core MA crossover and the specific confirmation filters that were applied.
-        2. An interpretation of its performance. Was the optimized strategy profitable? Is the number of trades high or low for the period?
-        3. Potential strengths and weaknesses based on the **complete set of rules** that were active for this optimization. For example, mention how the combination of MA periods and active filters likely influenced the outcome.
+        2. An interpretation of its performance. Was the optimised strategy profitable? Is the number of trades high or low for the period?
+        3. Potential strengths and weaknesses based on the **complete set of rules** that were active for this optimisation. For example, mention how the combination of MA periods and active filters likely influenced the outcome.
 
         Do not give financial advice. The analysis should be based *only* on the provided data.`;
         
@@ -1604,7 +1604,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error("Error calling Gemini API:", error);
-            resultBox.innerHTML = `<p class="text-red-500">An error occurred while analyzing the strategy. Please check the console for details.</p>`;
+            resultBox.innerHTML = `<p class="text-red-500">An error occurred while analysing the strategy. Please check the console for details.</p>`;
         }
     }
     
@@ -1623,7 +1623,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.runSimulationBtn.addEventListener('click', runSimulation);
         elements.findOptimumBtn.addEventListener('click', () => findOptimum(false));
         elements.findComprehensiveOptimumBtn.addEventListener('click', () => findOptimum(true));
-        elements.analyzeStrategyBtn.addEventListener('click', analyzeStrategyWithAI);
+        elements.analyseStrategyBtn.addEventListener('click', analyseStrategyWithAI);
         elements.resetToDefaultsBtn.addEventListener('click', setDefaults);
         elements.patternSelector.addEventListener('change', () => {
             const selectedPatternKey = elements.patternSelector.value;
@@ -1686,7 +1686,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, () => elements.comprehensiveOptimumHoverInfoBox);
     }
 
-    async function initialize() {
+    async function initialise() {
         defaultSettings = getSettings();
         historicalPrices = await fetchCSV('./btc-usd-max.csv');
         if (historicalPrices.length > 0) {
@@ -1708,7 +1708,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         drawPatternChart(initialPattern.data, initialPattern.name);
     }
 
-    initialize();
+    initialise();
 });
 </script>
 </body>
