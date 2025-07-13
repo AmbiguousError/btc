@@ -144,14 +144,21 @@
             <h3>How Signals Are Calculated</h3>
             <p>This model combines multiple technical indicators and risk management rules to generate buy and sell signals.</p>
             <ul class="list-disc pl-5 mt-2 space-y-1">
-                <li><strong>1. Moving Average (MA) Crossover:</strong> The core signal. A "Golden Cross" (short MA over long MA) is a buy signal, while a "Death Cross" is a sell signal.</li>
-                <li><strong>2. Risk Management (Highest Priority):</strong> These rules override all other signals.
+                <li><strong>1. Entry Signals:</strong> A position can be opened based on one of two primary signals:
+                    <ul class="list-disc pl-6 mt-1">
+                        <li><strong>Moving Average (MA) Crossover:</strong> A "Golden Cross" (short MA over long MA) is a buy signal.</li>
+                        <li><strong>MA Envelope:</strong> A buy signal occurs if the price drops a specified percentage below the Long MA, suggesting it's oversold relative to its trend.</li>
+                    </ul>
+                </li>
+                <li><strong>2. Exit & Risk Management (Highest Priority):</strong> These rules override all other signals to close a position.
                      <ul class="list-disc pl-6 mt-1">
                         <li><strong>Stop-Loss & Take-Profit:</strong> If enabled, a position is sold if the price hits a fixed percentage below (Stop-Loss) or above (Take-Profit) the entry price.</li>
                         <li><strong>Trailing Stop-Loss:</strong> A more dynamic rule. If enabled, the sell price moves up as the price rises. A position is sold if the price drops by the specified percentage from its *highest point* since the trade was opened. This is designed to protect profits.</li>
+                        <li><strong>Partial Sell on MA Cross:</strong> If enabled, this rule sells 50% of the current holding if the price crosses back below the Long MA, locking in some profit while leaving the rest to run.</li>
+                        <li><strong>MA Envelope Sell:</strong> A position is sold if the price rises a specified percentage above the Long MA.</li>
                     </ul>
                 </li>
-                <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the MA crossover signals. A valid signal only occurs when the MA crossover happens *and* all enabled filter conditions are met simultaneously.
+                <li><strong>3. Optional Confirmation Filters:</strong> If enabled, these add extra conditions to the entry signals. A valid signal only occurs when the primary signal happens *and* all enabled filter conditions are met simultaneously.
                     <ul class="list-disc pl-6 mt-1">
                         <li><strong>RSI Filter:</strong> A buy requires RSI to be below the overbought level; a sell requires it to be above the oversold level.</li>
                         <li><strong>Bollinger Bands (BB) Filter:</strong> A buy requires the price to be below the middle BB line (the BB's own moving average); a sell requires it to be above. This acts as a 'mean reversion' check.</li>
@@ -196,6 +203,7 @@
                 <div class="input-group"><label for="serviceFee">Service Fee (%):</label><input type="number" id="serviceFee" value="5" min="0" max="10" step="0.1"></div>
                 <div class="input-group"><label for="shortMA">Short MA Period:</label><input type="number" id="shortMA" value="2" min="2"></div>
                 <div class="input-group"><label for="longMA">Long MA Period:</label><input type="number" id="longMA" value="5" min="3"></div>
+                <div class="input-group"><label for="envelopePercent">MA Envelope (%):</label><input type="number" id="envelopePercent" value="5" min="0.1" step="0.1"></div>
                 <div class="input-group"><label for="rsiPeriod">RSI Period:</label><input type="number" id="rsiPeriod" value="14" min="2"></div>
                 <div class="input-group"><label for="rsiOverbought">RSI Overbought:</label><input type="number" id="rsiOverbought" value="70" min="51"></div>
                 <div class="input-group"><label for="rsiOversold">RSI Oversold:</label><input type="number" id="rsiOversold" value="30" max="49"></div>
@@ -208,6 +216,10 @@
 
 
                 <div class="checkbox-group mt-4 col-span-2 md:col-span-4 flex-wrap">
+                    <input type="checkbox" id="useEnvelope" class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
+                    <label for="useEnvelope" class="mr-4">Use MA Envelope</label>
+                    <input type="checkbox" id="usePartialSell" class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
+                    <label for="usePartialSell" class="mr-4">Use Partial Sell</label>
                     <input type="checkbox" id="useSLTP" checked class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
                     <label for="useSLTP" class="mr-4">Use Fixed SL/TP</label>
                     <input type="checkbox" id="useTrailingStopLoss" class="h-5 w-5 rounded border-grey-300 text-indigo-600 focus:ring-indigo-500">
@@ -280,7 +292,7 @@
             <h2 class="text-2xl font-bold text-grey-800 mb-4 text-center">Comprehensive Strategy Optimisation</h2>
             <p class="description-box">This is the most powerful tool. It performs an exhaustive search (a "grid search") by testing every possible combination of the parameters below to find the absolute best-performing strategy.
                 <br>• <b>MA Periods:</b> Short (2-60) vs. Long (up to 120).
-                <br>• <b>Filter Combinations:</b> All 32 on/off combinations of the 5 filters.
+                <br>• <b>Filter Combinations:</b> All 64 on/off combinations of the 6 filters.
                 <br>• <b>Trailing SL %:</b> A range of values (1%, 3%, 5%, 10%, 15%, 20%) are tested if Trailing SL is active.
                 <br><b>Note:</b> For other filters (Fixed SL/TP, RSI, etc.), the optimisation tests their on/off state but uses the single value set in the main "Strategy Parameters" panel. It does not currently test a range of different periods or levels for these specific filters, which is a potential future enhancement.
             </p>
@@ -419,6 +431,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         serviceFee: document.getElementById('serviceFee'),
         shortMA: document.getElementById('shortMA'),
         longMA: document.getElementById('longMA'),
+        envelopePercent: document.getElementById('envelopePercent'),
+        useEnvelope: document.getElementById('useEnvelope'),
+        usePartialSell: document.getElementById('usePartialSell'),
         rsiPeriod: document.getElementById('rsiPeriod'),
         rsiOverbought: document.getElementById('rsiOverbought'),
         rsiOversold: document.getElementById('rsiOversold'),
@@ -619,6 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let signals = [];
         let entryPrice = 0;
         let highWaterMark = 0;
+        let partialSellExecuted = false;
 
         for (let i = 1; i < prices.length; i++) {
             const price = prices[i].price;
@@ -639,36 +655,61 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const trailingStopPrice = highWaterMark * (1 - settings.trailingStopLoss / 100);
                     if (price <= trailingStopPrice) sellReason = 'trailing_stop_loss';
                 }
+                
+                // Partial sell logic
+                if (!sellReason && settings.usePartialSell && !partialSellExecuted && price < longMA[i]) {
+                    const btcToSell = btc / 2;
+                    const cashFromSale = btcToSell * price;
+                    const costOfBtcSold = btcToSell * entryPrice;
+                    const partialProfit = cashFromSale - costOfBtcSold;
+                    
+                    cash += cashFromSale;
+                    btc -= btcToSell;
+                    
+                    signals.push({ index: i, type: 'sell', price, grossProfit: partialProfit, reason: 'partial_sell_ma_cross', btc: btcToSell });
+                    partialSellExecuted = true;
+                }
 
                 // If not triggered by risk management, check indicator signals
                 if (!sellReason) { 
                     const deathCross = shortMA[i - 1] >= longMA[i - 1] && shortMA[i] < longMA[i];
+                    const envelopeSell = settings.useEnvelope && price > (longMA[i] * (1 + settings.envelopePercent / 100));
                     const bbConditionSell = !settings.useBBFilter || price > bb.middle[i];
                     const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
-                    if(deathCross && bbConditionSell && volumeCondition) {
-                        sellReason = 'death_cross';
+
+                    if ((deathCross || envelopeSell) && bbConditionSell && volumeCondition) {
+                        sellReason = deathCross ? 'death_cross' : 'envelope_sell';
                     }
                 }
 
                 if(sellReason){
-                    cash = btc * price;
-                    const buySignal = signals.filter(s => s.type === 'buy').pop();
-                    const grossProfit = cash - (buySignal.btc * buySignal.price);
-                    signals.push({ index: i, type: 'sell', price, grossProfit, reason: sellReason, btc });
+                    const cashFromSale = btc * price;
+                    const remainingCost = btc * entryPrice;
+                    const finalProfit = cashFromSale - remainingCost;
+                    
+                    cash += cashFromSale;
+                    signals.push({ index: i, type: 'sell', price, grossProfit: finalProfit, reason: sellReason, btc });
                     btc = 0;
                 }
 
             } else { // Not in a position, check for buy conditions
                 const goldenCross = shortMA[i - 1] <= longMA[i - 1] && shortMA[i] > longMA[i];
+                const envelopeBuy = settings.useEnvelope && price < (longMA[i] * (1 - settings.envelopePercent / 100));
+                
+                let buyReason = null;
+                if (goldenCross) buyReason = 'golden_cross';
+                else if (envelopeBuy) buyReason = 'envelope_buy';
+
                 const rsiCondition = !settings.useRsiFilter || rsi[i] < settings.rsiOverbought;
                 const bbConditionBuy = !settings.useBBFilter || price < bb.middle[i];
                 const volumeCondition = !settings.useVolumeFilter || volume > volumeSMA[i];
                 
-                if (goldenCross && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
+                if (buyReason && cash > 0 && rsiCondition && bbConditionBuy && volumeCondition) {
                     btc = cash / price;
                     entryPrice = price;
                     highWaterMark = price; // Reset high water mark on new buy
-                    signals.push({ index: i, type: 'buy', price, btc });
+                    partialSellExecuted = false; // Reset for new trade
+                    signals.push({ index: i, type: 'buy', price, btc, reason: buyReason });
                     cash = 0;
                 }
             }
@@ -792,7 +833,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const takeProfitLevel = getY(lastBuySignal.price * (1 + settings.takeProfit / 100));
                     drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: stopLossLevel}, {x: x, y: stopLossLevel}], '#ef4444', 1, true);
                     drawDataLine(ctx, [{x: getX(lastBuySignal.index), y: takeProfitLevel}, {x: x, y: takeProfitLevel}], '#22c55e', 1, true);
-                    lastBuySignal = null;
+                    if(s.reason !== 'partial_sell_ma_cross') lastBuySignal = null;
                 }
 
                 ctx.beginPath();
@@ -802,7 +843,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else if (s.reason === 'take_profit') {
                     ctx.fillStyle = '#22c55e'; // Green triangle
                     ctx.moveTo(x, y - 6); ctx.lineTo(x-6, y+3); ctx.lineTo(x+6, y+3); ctx.closePath();
-                } else { // death_cross
+                } else { // death_cross or other
                     ctx.fillStyle = '#ef4444'; // Red square
                     ctx.rect(x-4, y-4, 8, 8);
                 }
@@ -1004,6 +1045,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             serviceFee: parseFloat(elements.serviceFee.value),
             shortPeriod: parseInt(elements.shortMA.value),
             longPeriod: parseInt(elements.longMA.value),
+            envelopePercent: parseFloat(elements.envelopePercent.value),
+            useEnvelope: elements.useEnvelope.checked,
+            usePartialSell: elements.usePartialSell.checked,
             rsiPeriod: parseInt(elements.rsiPeriod.value),
             rsiOverbought: parseInt(elements.rsiOverbought.value),
             rsiOversold: parseInt(elements.rsiOversold.value),
@@ -1023,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    function renderPerformanceResults(container, perf, settings) {
+    function renderPerformanceResults(container, perf, settings, prices) {
         const netProfit = perf.finalValue - settings.initialInvestment;
         const profitColor = netProfit >= 0 ? 'text-green-600' : 'text-red-600';
         const trades = perf.signals.filter(s => s.type === 'sell');
@@ -1032,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const taxableProfit = totalProfit > 0 ? totalProfit - fee : 0;
         const tax = taxableProfit > 0 ? taxableProfit * (settings.taxRate / 100) : 0;
 
-        showResults(container, `
+        let resultsHTML = `
             <h3>Results:</h3>
             <p>Final Portfolio Value (Pre-Tax/Fee): <span class="font-bold">$${formatNumber(perf.preTaxFinalValue)}</span></p>
             <p>Tax on Gains: <span class="font-bold text-red-600">-$${formatNumber(tax)}</span></p>
@@ -1040,7 +1084,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             <p>Final Net Value (Post-Tax/Fee): <span class="font-bold">$${formatNumber(perf.finalValue)}</span></p>
             <p>Net Profit/Loss: <span class="font-bold ${profitColor}">$${formatNumber(netProfit)}</span></p>
             <p>Total completed trades: ${trades.length}</p>
-        `);
+        `;
+        
+        if(perf.inPositionAtEnd) {
+            const lastBuySignal = perf.signals.filter(s => s.type === 'buy').pop();
+            const lastPrice = prices[prices.length - 1].price;
+            const unrealisedProfit = (lastPrice * lastBuySignal.btc) - (lastBuySignal.price * lastBuySignal.btc);
+            const unrealisedColor = unrealisedProfit >= 0 ? 'text-green-600' : 'text-red-600';
+            resultsHTML += `<p>Unrealised P/L (Open Position): <span class="font-bold ${unrealisedColor}">$${formatNumber(unrealisedProfit)}</span></p>`;
+        }
+
+        showResults(container, resultsHTML);
     }
     
     // --- Main Drawing Functions ---
@@ -1087,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const performance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, settings);
         const triggers = calculateNextDayTriggers(filteredPrices, performance, settings, shortMA, longMA);
         currentStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: performance.signals, settings, performance, triggers };
-        renderPerformanceResults(elements.currentSimulationResults, performance, settings);
+        renderPerformanceResults(elements.currentSimulationResults, performance, settings, filteredPrices);
         renderNextDayTriggerAnalysis(performance, settings, elements.currentNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi, bb);
         renderTransactionTable(elements.currentTransactionsContainer, performance, settings, filteredPrices);
 
@@ -1097,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fullyFilteredPerformance = calculateStrategyPerformance(filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, fullyFilteredSettings);
         const fullyFilteredTriggers = calculateNextDayTriggers(filteredPrices, fullyFilteredPerformance, fullyFilteredSettings, shortMA, longMA);
         rsiFilteredStrategyData = { prices: filteredPrices, shortMA, longMA, rsi, bb, volumeSMA, signals: fullyFilteredPerformance.signals, settings: fullyFilteredSettings, performance: fullyFilteredPerformance, triggers: fullyFilteredTriggers };
-        renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings);
+        renderPerformanceResults(elements.rsiFilteredSimulationResults, fullyFilteredPerformance, settings, filteredPrices);
         renderNextDayTriggerAnalysis(fullyFilteredPerformance, fullyFilteredSettings, elements.filteredNextDayAnalysisContainer, filteredPrices, shortMA, longMA, rsi, bb);
         renderTransactionTable(elements.rsiFilteredTransactionsContainer, fullyFilteredPerformance, fullyFilteredSettings, filteredPrices);
 
@@ -1158,13 +1212,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Create an async generator to yield combinations without blocking the UI
             async function* generateCombinations() {
-                for (let i = 0; i < 32; i++) {
+                for (let i = 0; i < 64; i++) { // Now 6 filters = 2^6 = 64 combinations
                     const baseFilterSettings = {
                         useSLTP: (i & 1) > 0,
                         useTrailingStopLoss: (i & 2) > 0,
                         useRsiFilter: (i & 4) > 0,
                         useBBFilter: (i & 8) > 0,
                         useVolumeFilter: (i & 16) > 0,
+                        useEnvelope: (i & 32) > 0,
                     };
                     const tslIterator = baseFilterSettings.useTrailingStopLoss ? trailingStopValues : [settings.trailingStopLoss];
                     for (const tsl of tslIterator) {
@@ -1278,15 +1333,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.classList.add('hidden'); // Hide by default
 
         const trades = [];
-        let buySignal = null;
+        let openBuys = [];
+
         for (const signal of signals) {
             if (signal.type === 'buy') {
-                buySignal = signal;
-            } else if (signal.type === 'sell' && buySignal) {
-                trades.push({ buy: buySignal, sell: signal });
-                buySignal = null;
+                openBuys.push(signal);
+            } else if (signal.type === 'sell' && openBuys.length > 0) {
+                let buySignal = openBuys[0];
+                let trade = { buy: buySignal, sell: signal };
+                
+                if (signal.reason === 'partial_sell_ma_cross') {
+                    // For a partial sell, we reduce the original buy's BTC amount
+                    // The next full sell will be paired with the same buy signal but with the remaining amount
+                    buySignal.btc -= signal.btc;
+                } else {
+                    // For a full sell, we remove the buy from the open list
+                    openBuys.shift();
+                }
+                trades.push(trade);
             }
         }
+
 
         if (trades.length === 0) {
             return; // No trades, keep container hidden
@@ -1314,7 +1381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let totalGrossProfit = 0;
         trades.forEach(trade => {
-            const buyValue = trade.buy.price * trade.buy.btc;
+            const buyValue = trade.buy.price * trade.sell.btc; // Use sell btc amount for correct value
             const sellValue = trade.sell.price * trade.sell.btc;
             const returnPercent = (trade.sell.grossProfit / buyValue) * 100;
             totalGrossProfit += trade.sell.grossProfit;
