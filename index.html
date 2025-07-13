@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
-    <!-- Version: 14.7 -->
+    <!-- Version: 14.8 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -1502,12 +1502,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function initialise() {
         defaultSettings = getSettings();
+        setupEventListeners();
+        
         historicalPrices = await fetchCSV('./btc-usd-max.csv');
         if (historicalPrices.length > 0) {
             elements.dateRangeSlider.value = 3; // Default to 6 Months
             elements.dateRangeSlider.dispatchEvent(new Event('input'));
         }
-        setupEventListeners();
+        
         window.addEventListener('resize', () => {
             // Redraw all charts on resize
             runSimulation();
