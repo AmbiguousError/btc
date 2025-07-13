@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
-    <!-- Version: 14.0 -->
+    <!-- Version: 14.1 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
@@ -785,6 +785,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ctx.fillStyle = '#22c55e'; // Solid Green circle for buy
                 ctx.arc(x, y, 5, 0, 2 * Math.PI);
                 ctx.fill();
+                ctx.fillText(`$${formatNumber(s.price)}`, x + 8, y + 4);
             } else if (s.type === 'sell') {
                 if (lastBuySignal && settings.useSLTP) {
                     const stopLossLevel = getY(lastBuySignal.price * (1 - settings.stopLoss / 100));
@@ -806,6 +807,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ctx.rect(x-4, y-4, 8, 8);
                 }
                 ctx.fill();
+                ctx.fillText(`$${formatNumber(s.price)}`, x + 8, y + 4);
             }
         });
 
@@ -1364,7 +1366,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sumShort = prices.slice(-short + 1).reduce((sum, p) => sum + p.price, 0);
         const sumLong = prices.slice(-long + 1).reduce((sum, p) => sum + p.price, 0);
         // P = (L*sumS - S*sumL) / (S - L)
-        const crossoverPrice = (long * sumShort - short * sumLong) / (short - long);
+        let crossoverPrice = (long * sumShort - short * sumLong) / (short - long);
+        if (crossoverPrice <= 0) {
+            crossoverPrice = null; // Impossible price
+        }
         triggers.crossoverPrice = crossoverPrice;
 
         if (perf.inPositionAtEnd) { // --- Currently in a position ---
