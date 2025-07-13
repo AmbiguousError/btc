@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
-    <!-- Version: 14.3 -->
+    <!-- Version: 14.4 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC/USD Trading Opportunity Identifier with Risk Management</title>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1496,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <tr><td>Last Price</td><td>$${formatNumber(lastPrice)}</td></tr>
                 <tr><td>Short MA (${settings.shortPeriod})</td><td>$${formatNumber(lastShortMA)}</td></tr>
                 <tr><td>Long MA (${settings.longPeriod})</td><td>$${formatNumber(lastLongMA)}</td></tr>
-                <tr><td>RSI (${settings.rsiPeriod})</td><td>${formatNumber(lastRSI)}</td></tr>
+                <tr><td>RSI (${settings.rsiPeriod})</td><td>$${formatNumber(lastRSI)}</td></tr>
                 <tr><td>BB Upper</td><td>$${formatNumber(lastBBUpper)}</td></tr>
                 <tr><td>BB Lower</td><td>$${formatNumber(lastBBLower)}</td></tr>
               </tbody>
@@ -1664,7 +1665,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyBe4FaOSzP9GaqTpcvW8lV-wKRu9nH82sA"; // API Key is handled by the environment
+            const apiKey = ""; // API Key is handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
