@@ -1,50 +1,38 @@
-# Name of the GitHub Action workflow
 name: Update BTC Price Data Daily
 
-# Controls when the action will run
 on:
-  # Triggers the workflow on a schedule (uses UTC time)
   schedule:
-    # Runs at 02:00 UTC every day (you can adjust this time)
-    #- cron: '0 2 * * *'
-    - cromn '*/2 * * * *'
-  # Allows you to run this workflow manually from the Actions tab
+    - cron: '*/2 * * * *'
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   update-csv:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # This line is crucial to allow the action to push changes
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # 1. Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # 2. Sets up Python on the runner
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 3. Installs the necessary Python packages
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Runs your Python script to update the CSV file
       - name: Run Python script to update data
-        run: python coinmarket_api.py # Assumes this is the name of your script
+        run: python coinmarket_api.py
 
-      # 5. Commits and pushes the updated CSV file back to the repository
       - name: Commit and push changes
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add btc-usd-max.csv
-          # The following command will only commit if there are changes
+          # Only commit if there are changes to the file
           git diff --quiet && git diff --staged --quiet || git commit -m "Automated BTC data update"
           git push
