@@ -2,84 +2,91 @@ import requests
 import json
 import csv
 from datetime import datetime
+import os
 
-# Your CoinGecko API Key
-API_KEY = 'CG-EtHdqNNb9LXmWMXs8KBA9v4i'
-
-# --- Configuration for CoinGecko Historical Price Data ---
-# This endpoint fetches historical data for a specific coin.
+# --- Configuration ---
 API_URL = 'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart'
+CSV_FILE = 'btc-usd-max.csv'
+API_KEY = 'CG-EtHdqNNb9LXmWMXs8KBA9v4i' # Your CoinGecko API Key
 
-# --- Parameters for the API request ---
-# We are fetching data for the last 7 days in USD.
-# The API key is added as a parameter for authenticated requests.
-parameters = {
-    'vs_currency': 'usd',
-    'days': '31',
-    'interval': 'daily',
-    'x_cg_demo_api_key': API_KEY
-}
+def get_last_date_from_csv(file_path):
+    """Reads the last timestamp from the CSV file to avoid duplicates."""
+    last_date = None
+    if not os.path.exists(file_path):
+        print(f"Warning: CSV file '{file_path}' not found. A new one will be created.")
+        return None
+        
+    try:
+        with open(file_path, mode='r', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            # Skip header
+            next(reader, None) 
+            for row in reader:
+                if row:  # Ensure row is not empty
+                    last_date = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S UTC')
+    except Exception as e:
+        print(f"Could not read the last date from CSV: {e}")
+    return last_date
 
-# Initialize response variable to None to prevent NameError on request failure
-response = None
-try:
-    # Make the GET request to the CoinGecko API
-    response = requests.get(API_URL, params=parameters)
-    response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+def update_btc_data():
+    """Fetches the latest BTC/USD data from CoinGecko and appends it to btc-usd-max.csv."""
+    
+    # 1. Get the last recorded date from your CSV
+    last_recorded_date = get_last_date_from_csv(CSV_FILE)
+    print(f"Last recorded date in CSV: {last_recorded_date}")
 
-    # Parse the JSON response
-    data = json.loads(response.text)
+    # --- API Parameters ---
+    # Fetching the last few days is enough to check for new data.
+    parameters = {
+        'vs_currency': 'usd',
+        'days': '5', # Fetching the last 5 days should be sufficient
+        'interval': 'daily',
+        'x_cg_demo_api_key': API_KEY
+    }
 
-    # Check if the API call was successful and the data structure is as expected
-    if 'prices' in data:
-        prices = data['prices']
-        market_caps = data['market_caps']
-        total_volumes = data['total_volumes']
+    print("Fetching latest data from CoinGecko...")
+    try:
+        response = requests.get(API_URL, params=parameters)
+        response.raise_for_status()
+        data = response.json()
 
-        # Define the CSV file name
-        csv_file = 'coingecko_btc_history_7_days.csv'
-
-        print(f"Successfully fetched historical data for Bitcoin (BTC) from CoinGecko.")
-
-        # Write the data to a CSV file
-        with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-
-            # Write the header row
-            writer.writerow(['Timestamp', 'Price (USD)', 'Market Cap', 'Total Volume'])
-
-            # Loop through the price data and combine with other metrics
-            # CoinGecko returns parallel arrays, so we iterate by index
+        if 'prices' in data:
+            prices = data['prices']
+            market_caps = data['market_caps']
+            total_volumes = data['total_volumes']
+            
+            new_rows = []
             for i in range(len(prices)):
-                # Convert Unix timestamp (in milliseconds) to a readable format
-                timestamp = datetime.fromtimestamp(prices[i][0] / 1000).strftime('%Y-%m-%d')
-                price = prices[i][1]
-                market_cap = market_caps[i][1]
-                total_volume = total_volumes[i][1]
+                # Convert timestamp from milliseconds to a datetime object
+                record_date = datetime.fromtimestamp(prices[i][0] / 1000)
+                
+                # 2. Check if the record is newer than the last one in the file
+                if last_recorded_date is None or record_date > last_recorded_date:
+                    formatted_timestamp = record_date.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    price = prices[i][1]
+                    market_cap = market_caps[i][1]
+                    total_volume = total_volumes[i][1]
+                    
+                    new_rows.append([formatted_timestamp, price, market_cap, total_volume])
 
-                writer.writerow([timestamp, price, market_cap, total_volume])
+            # 3. Append only the new rows to the CSV file
+            if new_rows:
+                with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    writer.writerows(new_rows)
+                print(f"Successfully added {len(new_rows)} new records to {CSV_FILE}.")
+            else:
+                print("No new data to add. The CSV file is already up-to-date.")
 
-        print(f"\nHistorical price data saved to {csv_file}")
+        else:
+            print(f"Error: Unexpected API response structure.")
+            print("Received data:", json.dumps(data, indent=4))
 
-    else:
-        # Print an error message if the API call was not successful or data is missing
-        print(f"Error fetching data from CoinGecko API: Unexpected response structure.")
-        print("Received data:", json.dumps(data, indent=4))
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        if 'response' in locals():
+            print("Response Status Code:", response.status_code)
+            print("Response Text:", response.text)
 
-except requests.exceptions.RequestException as e:
-    # Handle network-related errors
-    print(f"An error occurred: {e}")
-    if response is not None:
-        print("Response Status Code:", response.status_code)
-        print("Response Text:", response.text)
-
-except (KeyError, IndexError) as e:
-    # Handle errors related to the structure of the API response
-    print(f"Error parsing the API response: {e}")
-    if 'data' in locals():
-        print("Received data:", json.dumps(data, indent=4))
-except json.JSONDecodeError:
-    # Handle errors when parsing the JSON response
-    print("Error decoding the JSON response from the API.")
-    if response is not None:
-        print("Received text:", response.text)
+if __name__ == '__main__':
+    update_btc_data()
