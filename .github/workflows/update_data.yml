@@ -6,7 +6,8 @@ on:
   # Triggers the workflow on a schedule (uses UTC time)
   schedule:
     # Runs at 02:00 UTC every day (you can adjust this time)
-    - cron: '0 2 * * *'
+    #- cron: '0 2 * * *'
+    - cromn '*/2 * * * *'
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
