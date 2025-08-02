@@ -1,3 +1,5 @@
+https://ambiguouserror.github.io/btc/
+
 # BTC/USD Trading Opportunity Identifier with Risk Management
 
 This repository contains a web-based application designed to identify and optimize trading opportunities for BTC/USD using historical data and various technical analysis strategies.
